@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme tokens as "R G B" so Tailwind opacity modifiers work (bg-surface/90). */
+@layer base {
+  :root {
+    color-scheme: light;
+    --canvas: 248 250 252; /* slate-50 */
+    --surface: 255 255 255;
+    --surface-muted: 241 245 249; /* slate-100 */
+    --line: 226 232 240; /* slate-200 */
+    --line-strong: 203 213 225; /* slate-300 */
+    --fg: 30 41 59; /* slate-800 */
+    --fg-muted: 71 85 105; /* slate-600 */
+    --fg-subtle: 100 116 139; /* slate-500 */
+    --accent: 21 128 61; /* green-700 */
+    --accent-soft: 236 253 243;
+    --danger: 185 28 28; /* red-700 */
+    --danger-soft: 254 242 242; /* red-50 */
+    --danger-line: 254 202 202; /* red-200 */
+  }
+
+  .dark {
+    color-scheme: dark;
+    --canvas: 2 6 23; /* slate-950 */
+    --surface: 15 23 42; /* slate-900 */
+    --surface-muted: 30 41 59; /* slate-800 */
+    --line: 30 41 59; /* slate-800 */
+    --line-strong: 51 65 85; /* slate-700 */
+    --fg: 241 245 249; /* slate-100 */
+    --fg-muted: 203 213 225; /* slate-300 */
+    --fg-subtle: 148 163 184; /* slate-400 */
+    --accent: 74 222 128; /* green-400 */
+    --accent-soft: 5 46 22; /* green-950 */
+    --danger: 252 165 165; /* red-300 */
+    --danger-soft: 69 10 10; /* red-950 */
+    --danger-line: 127 29 29; /* red-900 */
+  }
+
+  body {
+    @apply bg-canvas text-fg antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-brand-600 bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-danger {
+    @apply border-danger-line text-danger hover:bg-danger-soft;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1 text-xs;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg shadow-sm outline-none placeholder:text-fg-subtle focus:border-brand-500 focus:ring-2 focus:ring-accent-soft;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-fg-muted;
+  }
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-sm;
+  }
+  .error-box {
+    @apply rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger;
+  }
+}
+
+/* Leaflet controls should stay under the sticky header. */
+.leaflet-container {
+  z-index: 0;
+  background: rgb(var(--surface-muted));
+}
+.leaflet-container a {
+  color: rgb(var(--accent));
+}
+
+/* Dark map: invert the OSM tiles and the zoom/draw/attribution controls. */
+.dark .leaflet-tile-pane,
+.dark .leaflet-bar,
+.dark .leaflet-control-attribution {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+}

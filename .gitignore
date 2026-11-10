@@ -1,0 +1,10 @@
+node_modules/
+.next/
+dist/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+# Generated JWT keys and uploaded images when running services outside Docker
+.keys/
+uploads/

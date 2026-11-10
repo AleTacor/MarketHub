@@ -1,0 +1,9 @@
+# Shared development image for every Node service. The repo is bind-mounted at /repo.
+FROM node:22-bookworm-slim
+RUN npm install -g pnpm@9.15.9
+# Pre-create dirs so named volumes inherit "node" ownership on first creation.
+RUN mkdir -p /home/node/.pnpm-store /data/uploads /data/keys \
+  && chown -R node:node /home/node/.pnpm-store /data
+ENV npm_config_store_dir=/home/node/.pnpm-store
+USER node
+WORKDIR /repo

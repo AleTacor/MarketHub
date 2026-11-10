@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^typecheck"
+      ]
+    },
+    "test": {},
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": [
+        "PORT",
+        "DATABASE_URL",
+        "KEYS_DIR",
+        "JWT_PRIVATE_KEY",
+        "TOKEN_TTL_DAYS",
+        "COOKIE_SECURE",
+        "AUTH_JWKS_URL",
+        "UPLOAD_DIR",
+        "PUBLIC_UPLOAD_PATH",
+        "AUTH_SERVICE_URL",
+        "SHOP_SERVICE_URL"
+      ]
+    }
+  }
+}

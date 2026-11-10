@@ -1,0 +1,101 @@
+name: markethub
+
+x-node-service: &node-service
+  build:
+    context: .
+    dockerfile: infra/docker/Dockerfile.dev
+  image: markethub-node-dev
+  volumes:
+    - .:/repo
+    - pnpm-store:/home/node/.pnpm-store
+  restart: unless-stopped
+
+services:
+  # One-shot: installs workspace dependencies before the apps start.
+  install:
+    <<: *node-service
+    command: pnpm install --frozen-lockfile
+    restart: "no"
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-markethub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-markethub}
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00-markethub.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-markethub} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  auth-service:
+    <<: *node-service
+    command: pnpm --filter @markethub/auth-service dev
+    environment:
+      PORT: 4001
+      DATABASE_URL: postgres://${POSTGRES_USER:-markethub}:${POSTGRES_PASSWORD:-markethub}@postgres:5432/auth_db
+      KEYS_DIR: /data/keys
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      COOKIE_SECURE: "false"
+    volumes:
+      - .:/repo
+      - pnpm-store:/home/node/.pnpm-store
+      - jwt-keys:/data/keys
+    depends_on:
+      install:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  shop-service:
+    <<: *node-service
+    command: pnpm --filter @markethub/shop-service dev
+    environment:
+      PORT: 4002
+      DATABASE_URL: postgres://${POSTGRES_USER:-markethub}:${POSTGRES_PASSWORD:-markethub}@postgres:5432/shop_db
+      AUTH_JWKS_URL: http://auth-service:4001/api/auth/.well-known/jwks.json
+      UPLOAD_DIR: /data/uploads
+      PUBLIC_UPLOAD_PATH: /uploads
+    volumes:
+      - .:/repo
+      - pnpm-store:/home/node/.pnpm-store
+      - uploads:/data/uploads
+    depends_on:
+      install:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *node-service
+    command: pnpm --filter @markethub/web dev
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      install:
+        condition: service_completed_successfully
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - uploads:/data/uploads:ro
+    depends_on:
+      - web
+      - auth-service
+      - shop-service
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  pnpm-store:
+  uploads:
+  jwt-keys:

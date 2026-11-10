@@ -1,0 +1,15 @@
+/** Name of the httpOnly cookie that carries the JWT. */
+export const AUTH_COOKIE = "mh_token";
+/** `iss` claim of tokens issued by auth-service. */
+export const JWT_ISSUER = "markethub-auth";
+
+export const ROLES = ["empresario", "cliente"] as const;
+export type Role = (typeof ROLES)[number];
+
+export const ROLE_LABELS: Record<Role, string> = {
+  empresario: "Empresario",
+  cliente: "Cliente",
+};
+
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
