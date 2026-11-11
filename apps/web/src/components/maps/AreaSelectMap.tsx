@@ -1,9 +1,11 @@
 "use client";
 
-import "@geoman-io/leaflet-geoman-free";
-import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+// Must run before Geoman, which needs the global `L`.
+import "./leaflet-global";
+import "@geoman-io/leaflet-geoman-free";
+import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 import { useEffect, useRef } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
 import type { GeoPolygon, ShopSummary } from "@markethub/shared";
