@@ -157,7 +157,7 @@ export function createRepository(db: Knex) {
       return row!;
     },
 
-    async setStock(id: number, stock: number) {
+    async setStock(id: number, stock: number | null) {
       const [row] = await db("products")
         .where({ id })
         .update({ stock, updated_at: db.fn.now() })

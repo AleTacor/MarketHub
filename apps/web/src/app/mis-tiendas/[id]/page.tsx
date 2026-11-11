@@ -11,6 +11,7 @@ import { ShopForm } from "@/components/ShopForm";
 import { StockControl } from "@/components/StockControl";
 import { api, errorMessage } from "@/lib/api";
 import { queryKeys, useShop } from "@/lib/hooks";
+import { PRODUCT_IMAGE, SHOP_IMAGE } from "@/lib/images";
 
 export default function ManageShopPage() {
   const { id } = useParams<{ id: string }>();
@@ -67,7 +68,7 @@ function ManageShop({ id, userId }: { id: number; userId: number }) {
         ) : (
           <div className="flex flex-col gap-4 sm:flex-row">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={shop.imageUrl} alt={shop.name} className="h-28 w-28 rounded-lg object-cover" />
+            <img src={shop.imageUrl} alt={shop.name} className={`${SHOP_IMAGE.className} w-48 self-start rounded-lg object-cover`} />
             <div className="flex-1">
               <p className="text-xs font-medium uppercase tracking-wide text-accent">{shop.shopType.name}</p>
               <h1 className="text-2xl font-semibold">{shop.name}</h1>
@@ -154,9 +155,9 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
     <li className="flex flex-wrap items-center gap-4 p-4">
       {product.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={product.imageUrl} alt={product.name} className="h-14 w-14 rounded-lg object-cover" />
+        <img src={product.imageUrl} alt={product.name} className={`${PRODUCT_IMAGE.className} w-16 rounded-lg object-cover`} />
       ) : (
-        <div className="h-14 w-14 rounded-lg bg-surface-muted" />
+        <div className={`${PRODUCT_IMAGE.className} w-16 rounded-lg bg-surface-muted`} />
       )}
       <div className="min-w-0 flex-1">
         <p className="font-medium">{product.name}</p>

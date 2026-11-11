@@ -65,7 +65,7 @@ Backends mount their routes **with the full `/api/...` prefix**. nginx does not 
 | DELETE | `/api/shops/:id` | owner | cascades products, deletes images |
 | POST | `/api/shops/:id/products` | owner | multipart, `image` optional |
 | PUT | `/api/products/:id` | owner | multipart |
-| PATCH | `/api/products/:id/stock` | owner | `{ stock }`: inline stock editing |
+| PATCH | `/api/products/:id/stock` | owner | `{ stock }` (`null` removes it): inline stock editing |
 | DELETE | `/api/products/:id` | owner | |
 
 auth-service: `POST /api/auth/register {name,password,role}`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/.well-known/jwks.json`. Both services also expose `GET /health`.
@@ -106,9 +106,11 @@ Turbo 2 filters environment variables for tasks (strict mode). If a service gain
 - **Migrations** are TS modules registered in `src/db/migrations/index.ts` (a custom Knex `migrationSource`, no knex CLI or knexfile). Add a new numbered file and register it. Never edit an applied migration. They run on service startup.
 - **Shop types** are seeded idempotently from `apps/shop-service/src/db/seed.ts` on every start. The DB table is the source of truth.
 - Services run TypeScript directly with `tsx` (`tsx watch` in dev). There is no compile step, and `tsc` is only for type-checking (`noEmit`). ESM (`"type": "module"`), extensionless relative imports.
+- Product stock is optional: `null` means the shop doesn't track a quantity (an empty form field). The public page then shows no availability badge.
+- Images are cropped in the browser before upload (`ImageInput` → `ImageCropDialog`, react-easy-crop + canvas in `src/lib/crop.ts`). Each kind has one fixed ratio in `apps/web/src/lib/images.ts` (shops 16:9, products 4:3), and every `<img>` of that kind uses its `className`, so the crop is exactly what is shown. `ImageInput` is controlled and its file input has no `name`: the form adds the cropped file to its FormData itself.
 - Images: `apps/shop-service/src/storage.ts` writes to `UPLOAD_DIR` and returns `/uploads/<uuid>.<ext>` URLs (JPG/PNG/WEBP, max 5 MB). To move to S3/R2, change only that module.
 - Frontend: client components and TanStack Query, with query keys in `apps/web/src/lib/hooks.ts` (`queryKeys`). Use the `api()` helper from `src/lib/api.ts`. It throws `ApiError` carrying the backend's Spanish message. Shared Tailwind classes (`btn`, `btn-primary`, `input`, `label`, `card`, `error-box`) are defined in `globals.css`.
-- Stock editing (`StockControl.tsx`) updates the `["shop", id]` cache optimistically and rolls back on error.
+- Stock editing (`StockControl.tsx`) updates the `["shop", id]` cache optimistically on every change, but debounces the PATCH (`STOCK_SAVE_DELAY_MS`, 350 ms): a burst is saved once with its final value (nothing if it ends where it started), a waiting change is flushed on unmount, and an error rolls the cache back to before the burst.
 - **Dark mode / colors:** use the semantic tokens (`bg-canvas`, `bg-surface`, `bg-surface-muted`, `border-line`, `border-line-strong`, `text-fg`, `text-fg-muted`, `text-fg-subtle`, `text-accent`, `bg-accent-soft`, `text-danger`, `bg-danger-soft`, `border-danger-line`). **Don't use raw `slate-*`, `white`, or `red-*`, and don't add `dark:` variants.** The tokens are CSS variables defined for `:root` and `.dark` in `globals.css` and mapped in `tailwind.config.ts`. To add one, define it in both blocks and in the config. `brand-500/600/700` are static (buttons, markers).
 - Theme: `darkMode: "class"`. `ThemeToggle` cycles Sistema → Claro → Oscuro and stores it in `localStorage["mh-theme"]` (nothing stored means follow the OS). `themeInitScript` (`src/lib/theme.ts`) runs in `<head>` to set the class before paint, so keep it in sync with `applyTheme`. The map goes dark through a CSS filter on Leaflet tiles and controls (`globals.css`).
 
@@ -134,6 +136,7 @@ Vitest everywhere. Tests live in `apps/<app>/test/` (schemas: `packages/shared/s
 
 Rules:
 - Query by role and label (`getByRole("button", { name: "Sumar uno" })`, `getByLabelText(...)`), the way a user finds things. Use test ids only for fakes.
+- **The crop dialog can't run in jsdom** (react-easy-crop, canvas). Tests of forms with an image mock it with `test/imageCrop.tsx`: `vi.mock("@/components/ImageCropDialog", async () => (await import("./imageCrop")).imageCropMock)`. After `user.upload()`, click "Aplicar recorte".
 - **Leaflet can't run in jsdom.** Mock `@/components/maps` with a fake that exposes the props (see `test/SearchPage.test.tsx`: buttons call `onAreaChange`, data attributes expose `shops`, `clearKey`, `fitToShops`).
 - To test optimistic updates, make sure the follow-up refetch can't mask a bug. For example, give it `delay("infinite")` when testing a rollback.
 - jsdom gaps are patched in `test/setup.ts`: `matchMedia` (ThemeToggle), `URL.createObjectURL` (image previews), and `FormData`, which jsdom builds from an internal file list that `user.upload()` can't fill. Also, jsdom's `required` check ignores uploaded files and would block submit, so tests that submit with an upload call `skipNativeValidation(field)` from `test/render.tsx` and check `toBeRequired()` separately.

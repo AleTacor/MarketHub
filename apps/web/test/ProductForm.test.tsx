@@ -4,6 +4,8 @@ import type { Product } from "@markethub/shared";
 import { ProductForm } from "@/components/ProductForm";
 import { renderWithClient } from "./render";
 
+vi.mock("@/components/ImageCropDialog", async () => (await import("./imageCrop")).imageCropMock);
+
 const photo = new File(["jpg-bytes"], "pan.jpg", { type: "image/jpeg" });
 const existing: Product = { id: 5, shopId: 1, name: "Barra de pan", description: "Recién hecha", imageUrl: "/uploads/pan.jpg", stock: 12 };
 
@@ -28,19 +30,56 @@ describe("ProductForm — create", () => {
     expect(Object.fromEntries(sent(onSubmit))).toEqual({ name: "Croissant", stock: "8", description: "De mantequilla" });
   });
 
-  it("starts with a stock of 0", () => {
+  it("makes the quantity optional and starts it empty", () => {
     renderForm();
-    expect(screen.getByLabelText("Cantidad")).toHaveValue(0);
+    expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
+    expect(screen.getByLabelText("Cantidad")).not.toBeRequired();
   });
 
-  it("includes the image when one is chosen", async () => {
+  it("sends an empty quantity when none is given", async () => {
     const { user, onSubmit } = renderForm();
     await user.type(screen.getByLabelText("Nombre"), "Pan");
-    await user.upload(screen.getByLabelText("Imagen del producto"), photo);
     await user.click(screen.getByRole("button", { name: "Añadir producto" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect((sent(onSubmit).get("image") as File).name).toBe("pan.jpg");
+    expect(sent(onSubmit).get("stock")).toBe("");
+  });
+
+  it("crops the chosen image to the product ratio (4:3) and sends the crop", async () => {
+    const { user, onSubmit } = renderForm();
+    await user.type(screen.getByLabelText("Nombre"), "Pan");
+    await user.upload(screen.getByLabelText("Imagen del producto"), photo);
+    expect(screen.getByRole("dialog", { name: "Recortar imagen" })).toHaveAttribute("data-aspect", String(4 / 3));
+    await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
+    await user.click(screen.getByRole("button", { name: "Añadir producto" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect((sent(onSubmit).get("image") as File).name).toBe("recortada-pan.jpg");
+  });
+
+  it("sends no image when the crop is cancelled", async () => {
+    const { user, onSubmit } = renderForm();
+    await user.type(screen.getByLabelText("Nombre"), "Pan");
+    await user.upload(screen.getByLabelText("Imagen del producto"), photo);
+    await user.click(screen.getByRole("button", { name: "Cancelar recorte" }));
+    await user.click(screen.getByRole("button", { name: "Añadir producto" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(sent(onSubmit).has("image")).toBe(false);
+  });
+
+  it("forgets the cropped image after a successful create", async () => {
+    const { user, onSubmit } = renderForm();
+    await user.type(screen.getByLabelText("Nombre"), "Pan");
+    await user.upload(screen.getByLabelText("Imagen del producto"), photo);
+    await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
+    await user.click(screen.getByRole("button", { name: "Añadir producto" }));
+    await waitFor(() => expect(screen.queryByRole("img", { name: "Vista previa" })).not.toBeInTheDocument());
+
+    await user.type(screen.getByLabelText("Nombre"), "Croissant");
+    await user.click(screen.getByRole("button", { name: "Añadir producto" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect((onSubmit.mock.calls[1]![0] as FormData).has("image")).toBe(false);
   });
 
   it("clears the form after a successful create, ready for the next product", async () => {
@@ -51,7 +90,7 @@ describe("ProductForm — create", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Nombre")).toHaveValue(""));
     expect(screen.getByLabelText("Descripción")).toHaveValue("");
-    expect(screen.getByLabelText("Cantidad")).toHaveValue(0);
+    expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
   });
 
   it("keeps the values and shows the error when saving fails", async () => {
@@ -84,6 +123,11 @@ describe("ProductForm — edit", () => {
     expect(screen.getByLabelText("Descripción")).toHaveValue("Recién hecha");
     expect(screen.getByLabelText("Cantidad")).toHaveValue(12);
     expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "/uploads/pan.jpg");
+  });
+
+  it("shows an empty quantity for a product without one", () => {
+    renderForm({ product: { ...existing, stock: null }, submitLabel: "Guardar" });
+    expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
   });
 
   it("doesn't clear the form after saving", async () => {

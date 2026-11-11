@@ -17,6 +17,7 @@ vi.mock("@/components/maps", () => ({
     </div>
   ),
 }));
+vi.mock("@/components/ImageCropDialog", async () => (await import("./imageCrop")).imageCropMock);
 
 beforeEach(() => {
   server.use(
@@ -41,6 +42,7 @@ async function fillFields(user: ReturnType<typeof renderForm>["user"], { postalC
   await user.type(screen.getByLabelText("Código postal"), postalCode);
   await user.selectOptions(screen.getByLabelText("Tipo de tienda"), await screen.findByRole("option", { name: "Frutería" }));
   await user.upload(screen.getByLabelText("Imagen de la tienda"), image);
+  await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
   skipNativeValidation(screen.getByLabelText("Nombre"));
 }
 
@@ -71,7 +73,7 @@ describe("ShopForm — create", () => {
       lng: "-3.7038",
     });
     expect(data.get("image")).toBeInstanceOf(File);
-    expect((data.get("image") as File).name).toBe("tienda.png");
+    expect((data.get("image") as File).name).toBe("recortada-tienda.png"); // the cropped file, not the original
   });
 
   it("requires a location on the map", async () => {
@@ -98,10 +100,36 @@ describe("ShopForm — create", () => {
     expect(screen.getByLabelText("Imagen de la tienda")).toBeRequired();
   });
 
-  it("previews the selected image", async () => {
+  it("asks to crop the selected image to the shop ratio (16:9) and previews the crop", async () => {
     const { user } = renderForm();
     await user.upload(screen.getByLabelText("Imagen de la tienda"), image);
-    expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "blob:preview/tienda.png");
+
+    expect(screen.getByRole("dialog", { name: "Recortar imagen" })).toHaveAttribute("data-aspect", String(16 / 9));
+    expect(screen.queryByRole("img", { name: "Vista previa" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "blob:preview/recortada-tienda.png");
+  });
+
+  it("lets the crop be adjusted again", async () => {
+    const { user } = renderForm();
+    await user.upload(screen.getByLabelText("Imagen de la tienda"), image);
+    await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
+
+    await user.click(screen.getByRole("button", { name: "Ajustar recorte" }));
+    expect(screen.getByRole("dialog", { name: "Recortar imagen" })).toBeInTheDocument();
+  });
+
+  it("drops the pick when the crop is cancelled", async () => {
+    const { user } = renderForm();
+    const field = screen.getByLabelText<HTMLInputElement>("Imagen de la tienda");
+    await user.upload(field, image);
+    await user.click(screen.getByRole("button", { name: "Cancelar recorte" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(field.value).toBe("");
+    expect(screen.queryByRole("img", { name: "Vista previa" })).not.toBeInTheDocument();
   });
 
   it("shows the backend error and re-enables the button", async () => {

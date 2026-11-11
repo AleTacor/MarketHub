@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { postalCodeSchema, type ShopDetail } from "@markethub/shared";
 import { errorMessage } from "@/lib/api";
+import { SHOP_IMAGE } from "@/lib/images";
 import { useShopTypes } from "@/lib/hooks";
 import { ImageInput } from "./ImageInput";
 import { LocationPickerMap, type LatLng } from "./maps";
@@ -26,6 +27,7 @@ export function ShopForm({
   const [shopTypeId, setShopTypeId] = useState(shop ? String(shop.shopType.id) : "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [image, setImage] = useState<File | null>(null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,7 +38,7 @@ export function ShopForm({
     if (!location) return setError("Marca en el mapa dónde está la tienda");
     data.set("lat", String(location.lat));
     data.set("lng", String(location.lng));
-    if ((data.get("image") as File | null)?.size === 0) data.delete("image");
+    if (image) data.set("image", image);
     setPending(true);
     try {
       await onSubmit(data);
@@ -94,7 +96,7 @@ export function ShopForm({
             </select>
           </div>
         </div>
-        <ImageInput currentUrl={shop?.imageUrl} required={!shop} label="Imagen de la tienda" />
+        <ImageInput kind={SHOP_IMAGE} value={image} onChange={setImage} currentUrl={shop?.imageUrl} required={!shop} label="Imagen de la tienda" />
         {error && <p className="error-box">{error}</p>}
         <div className="flex gap-2">
           <button className="btn btn-primary" disabled={pending}>

@@ -29,7 +29,8 @@ export interface Product {
   name: string;
   description: string;
   imageUrl: string | null;
-  stock: number;
+  /** `null`: the shop doesn't track a quantity for this product. */
+  stock: number | null;
 }
 
 export interface ShopDetail extends ShopSummary {

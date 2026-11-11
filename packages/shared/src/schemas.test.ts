@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { areaSearchSchema, postalCodeSchema, registerSchema, shopInputSchema } from "./schemas";
+import { areaSearchSchema, postalCodeSchema, productInputSchema, registerSchema, shopInputSchema, stockUpdateSchema } from "./schemas";
 
 describe("postalCodeSchema", () => {
   it.each(["28001", "08080", "01001", "52006", " 41001 "])("accepts %s", (cp) => {
@@ -31,5 +31,32 @@ describe("areaSearchSchema", () => {
   it("accepts a closed rectangle", () => {
     const ring = [[-3.8, 40.3], [-3.6, 40.3], [-3.6, 40.5], [-3.8, 40.5], [-3.8, 40.3]];
     expect(areaSearchSchema.safeParse({ area: { type: "Polygon", coordinates: [ring] } }).success).toBe(true);
+  });
+});
+
+describe("productInputSchema stock", () => {
+  const stockOf = (stock: unknown) => productInputSchema.parse({ name: "Pan", stock }).stock;
+
+  it("coerces multipart strings, keeping 0", () => {
+    expect(stockOf("12")).toBe(12);
+    expect(stockOf("0")).toBe(0);
+  });
+
+  it("treats an empty or missing quantity as not tracked (null), not 0", () => {
+    expect(stockOf("")).toBeNull();
+    expect(stockOf("  ")).toBeNull();
+    expect(stockOf(undefined)).toBeNull();
+  });
+
+  it("still rejects invalid quantities", () => {
+    expect(productInputSchema.safeParse({ name: "Pan", stock: "-1" }).success).toBe(false);
+    expect(productInputSchema.safeParse({ name: "Pan", stock: "abc" }).success).toBe(false);
+  });
+});
+
+describe("stockUpdateSchema", () => {
+  it("accepts null to remove the quantity, but requires the field", () => {
+    expect(stockUpdateSchema.parse({ stock: null })).toEqual({ stock: null });
+    expect(stockUpdateSchema.safeParse({}).success).toBe(false);
   });
 });

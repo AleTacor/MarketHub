@@ -2,16 +2,18 @@ import { screen, waitFor } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Product } from "@markethub/shared";
-import { StockControl } from "@/components/StockControl";
+import { STOCK_SAVE_DELAY_MS, StockControl } from "@/components/StockControl";
 import { queryKeys, useShop } from "@/lib/hooks";
 import { recorder, server } from "./msw";
 import { createTestQueryClient, renderWithClient, shopDetail } from "./render";
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** Server-side state the MSW handlers read and write. */
-let serverStock: number;
+let serverStock: number | null;
 let patches: ReturnType<typeof recorder>;
 
-const product = (stock: number): Product => ({ id: 5, shopId: 1, name: "Barra de pan", description: "", imageUrl: null, stock });
+const product = (stock: number | null): Product => ({ id: 5, shopId: 1, name: "Barra de pan", description: "", imageUrl: null, stock });
 
 /** Like the real page: StockControl re-renders from the cached shop. */
 function Harness() {
@@ -19,7 +21,7 @@ function Harness() {
   return data ? <StockControl product={data.products[0]!} /> : null;
 }
 
-function renderStock(stock: number) {
+function renderStock(stock: number | null) {
   serverStock = stock;
   const client = createTestQueryClient();
   client.setQueryData(queryKeys.shop(1), shopDetail({ products: [product(stock)] }));
@@ -36,7 +38,7 @@ beforeEach(() => {
     http.patch("/api/products/5/stock", async ({ request }) => {
       // Read this request's own body: a request still in flight when the test ends
       // must not depend on shared state the next test resets.
-      const { stock } = (await request.clone().json()) as { stock: number };
+      const { stock } = (await request.clone().json()) as { stock: number | null };
       await patches.record(request);
       await delay(50); // leaves time to observe the optimistic value
       serverStock = stock;
@@ -71,15 +73,44 @@ describe("StockControl", () => {
     await waitFor(() => expect(patches.calls[0]?.body).toEqual({ stock: 4 }));
   });
 
-  it("sends absolute values for quick repeated clicks", async () => {
+  it("waits for the changes to stop before saving", async () => {
+    const { user } = renderStock(5);
+    await user.click(plus());
+
+    await sleep(STOCK_SAVE_DELAY_MS / 2);
+    expect(patches.calls).toHaveLength(0);
+    await waitFor(() => expect(patches.calls).toHaveLength(1));
+  });
+
+  it("saves quick repeated clicks once, with the final value", async () => {
     const { user } = renderStock(5);
     await user.click(plus());
     await user.click(plus());
     await user.click(plus());
 
+    expect(input()).toHaveValue(8); // every click shows at once
+    await waitFor(() => expect(serverStock).toBe(8));
+    await sleep(STOCK_SAVE_DELAY_MS + 100);
+    expect(patches.calls.map((c) => c.body)).toEqual([{ stock: 8 }]);
     expect(input()).toHaveValue(8);
-    await waitFor(() => expect(patches.calls.map((c) => c.body)).toEqual([{ stock: 6 }, { stock: 7 }, { stock: 8 }]));
-    await waitFor(() => expect(input()).toHaveValue(8));
+  });
+
+  it("saves nothing when a burst ends at the starting value", async () => {
+    const { user } = renderStock(5);
+    await user.click(plus());
+    await user.click(minus());
+
+    expect(input()).toHaveValue(5);
+    await sleep(STOCK_SAVE_DELAY_MS + 100);
+    expect(patches.calls).toHaveLength(0);
+  });
+
+  it("still saves a waiting change when the control is removed", async () => {
+    const { user, unmount } = renderStock(5);
+    await user.click(plus());
+    unmount();
+
+    await waitFor(() => expect(patches.calls[0]?.body).toEqual({ stock: 6 }));
   });
 
   it("disables − at zero", () => {
@@ -106,13 +137,41 @@ describe("StockControl", () => {
     await waitFor(() => expect(patches.calls[0]?.body).toEqual({ stock: 9 }));
   });
 
-  it.each([["-3"], ["2.5"], [""]])("reverts an invalid value (%j) without calling the API", async (typed) => {
+  it.each([["-3"], ["2.5"]])("reverts an invalid value (%j) without calling the API", async (typed) => {
     const { user } = renderStock(5);
     await user.clear(input());
-    if (typed) await user.type(input(), typed);
+    await user.type(input(), typed);
     await user.tab();
 
     expect(input()).toHaveValue(5);
+    expect(patches.calls).toHaveLength(0);
+  });
+
+  it("removes the quantity when the field is emptied", async () => {
+    const { user } = renderStock(5);
+    await user.clear(input());
+    await user.tab();
+
+    await waitFor(() => expect(patches.calls[0]?.body).toEqual({ stock: null }));
+    expect(input()).toHaveValue(null);
+  });
+
+  it("shows a product without a quantity as empty, with − disabled", () => {
+    renderStock(null);
+    expect(input()).toHaveValue(null);
+    expect(minus()).toBeDisabled();
+  });
+
+  it("starts counting from 1 on + when there is no quantity", async () => {
+    const { user } = renderStock(null);
+    await user.click(plus());
+    await waitFor(() => expect(patches.calls[0]?.body).toEqual({ stock: 1 }));
+  });
+
+  it("does not call the API when an empty quantity stays empty", async () => {
+    const { user } = renderStock(null);
+    await user.click(input());
+    await user.tab();
     expect(patches.calls).toHaveLength(0);
   });
 
@@ -121,6 +180,21 @@ describe("StockControl", () => {
     await user.click(input());
     await user.tab();
     expect(patches.calls).toHaveLength(0);
+  });
+
+  it("rolls a whole burst back to the value before it", async () => {
+    server.use(
+      http.patch("/api/products/5/stock", () => HttpResponse.json({ error: "Este producto no es tuyo" }, { status: 403 })),
+      http.get("/api/shops/1", () => delay("infinite")),
+    );
+    const { user } = renderStock(5);
+
+    await user.click(plus());
+    await user.click(plus());
+    expect(input()).toHaveValue(7);
+
+    expect(await screen.findByText("Este producto no es tuyo")).toBeInTheDocument();
+    await waitFor(() => expect(input()).toHaveValue(5));
   });
 
   it("rolls back and shows the error when the server rejects the change", async () => {

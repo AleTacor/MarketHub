@@ -31,6 +31,15 @@ describe("POST /api/shops/:id/products", () => {
     expect(res.body).toMatchObject({ name: "Barra de pan", stock: 12 });
   });
 
+  it.each([
+    ["an empty quantity", { name: "Pan", stock: "" }],
+    ["no quantity field", { name: "Pan" }],
+  ])("creates a product without a quantity from %s", async (_label, fields) => {
+    const res = await request(ctx.app).post("/api/shops/1/products").set("Cookie", owner).field(fields).expect(201);
+    expect(ctx.repo.createProduct).toHaveBeenCalledWith(1, { name: "Pan", description: "", stock: null }, null);
+    expect(res.body.stock).toBeNull();
+  });
+
   it("stores the image when sent", async () => {
     await request(ctx.app)
       .post("/api/shops/1/products")
@@ -72,6 +81,13 @@ describe("PATCH /api/products/:id/stock", () => {
     ctx.repo.getProductWithOwner.mockResolvedValue(ownProduct);
     await patch({ stock: 0 }).expect(200);
     expect(ctx.repo.setStock).toHaveBeenCalledWith(5, 0);
+  });
+
+  it("removes the quantity with null", async () => {
+    ctx.repo.getProductWithOwner.mockResolvedValue(ownProduct);
+    const res = await patch({ stock: null }).expect(200);
+    expect(ctx.repo.setStock).toHaveBeenCalledWith(5, null);
+    expect(res.body.stock).toBeNull();
   });
 
   it.each([{ stock: -1 }, { stock: 2.5 }, { stock: "muchos" }, {}])(

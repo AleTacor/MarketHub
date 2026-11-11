@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ShopLocationMap } from "@/components/maps";
 import { errorMessage } from "@/lib/api";
+import { PRODUCT_IMAGE, SHOP_IMAGE } from "@/lib/images";
 import { useMe, useShop } from "@/lib/hooks";
 
 // Public: no account needed to see a shop and its products.
@@ -23,7 +24,7 @@ export default function ShopPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="card overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={shop.imageUrl} alt={shop.name} className="h-56 w-full object-cover" />
+          <img src={shop.imageUrl} alt={shop.name} className={`${SHOP_IMAGE.className} w-full object-cover`} />
           <div className="p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-accent">{shop.shopType.name}</p>
             <h1 className="text-2xl font-semibold">{shop.name}</h1>
@@ -51,20 +52,23 @@ export default function ShopPage() {
               <li key={p.id} className="card overflow-hidden">
                 {p.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt={p.name} className="h-40 w-full object-cover" />
+                  <img src={p.imageUrl} alt={p.name} className={`${PRODUCT_IMAGE.className} w-full object-cover`} />
                 ) : (
-                  <div className="h-40 bg-surface-muted" />
+                  <div className={`${PRODUCT_IMAGE.className} bg-surface-muted`} />
                 )}
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold">{p.name}</h3>
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
-                        p.stock > 0 ? "bg-accent-soft text-accent" : "bg-danger-soft text-danger"
-                      }`}
-                    >
-                      {p.stock > 0 ? `${p.stock} disponibles` : "Agotado"}
-                    </span>
+                    {/* No badge when the shop doesn't track a quantity. */}
+                    {p.stock !== null && (
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                          p.stock > 0 ? "bg-accent-soft text-accent" : "bg-danger-soft text-danger"
+                        }`}
+                      >
+                        {p.stock > 0 ? `${p.stock} disponibles` : "Agotado"}
+                      </span>
+                    )}
                   </div>
                   {p.description && <p className="mt-1 text-sm text-fg-muted">{p.description}</p>}
                 </div>

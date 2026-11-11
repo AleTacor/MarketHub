@@ -50,14 +50,20 @@ export const stockSchema = z.coerce
   .min(0, "La cantidad no puede ser negativa")
   .max(1_000_000);
 
+/** Optional stock: `null` means the quantity isn't tracked. */
+const optionalStockSchema = stockSchema.nullable();
+
 export const productInputSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(100),
   description: z.string().trim().max(1000).default(""),
-  stock: stockSchema.default(0),
+  // Multipart sends an empty field (or none) when no quantity is given. Map that to
+  // null before coercion, which would turn "" into 0.
+  stock: z.preprocess((v) => (v === undefined || v === null || (typeof v === "string" && v.trim() === "") ? null : v), optionalStockSchema),
 });
 export type ProductInput = z.infer<typeof productInputSchema>;
 
-export const stockUpdateSchema = z.object({ stock: stockSchema });
+// JSON body: `{ stock: null }` removes the quantity; a missing `stock` is an error.
+export const stockUpdateSchema = z.object({ stock: optionalStockSchema });
 
 export const shopQuerySchema = z
   .object({

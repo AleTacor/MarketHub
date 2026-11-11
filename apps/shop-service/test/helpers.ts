@@ -22,7 +22,7 @@ export function fakeRepo(): RepoMock {
     getProductWithOwner: vi.fn(async () => undefined),
     createProduct: vi.fn(async (shopId: number, input: object, imageUrl: string | null) => ({ id: 1, shopId, imageUrl, ...input })),
     updateProduct: vi.fn(async (id: number, input: object) => ({ id, shopId: 1, imageUrl: null, ...input })),
-    setStock: vi.fn(async (id: number, stock: number) => ({ id, shopId: 1, name: "Pan", description: "", imageUrl: null, stock })),
+    setStock: vi.fn(async (id: number, stock: number | null) => ({ id, shopId: 1, name: "Pan", description: "", imageUrl: null, stock })),
     deleteProduct: vi.fn(async () => 1),
   };
 }
