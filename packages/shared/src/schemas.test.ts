@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH } from "./constants";
 import { areaSearchSchema, postalCodeSchema, productInputSchema, registerSchema, shopInputSchema, stockUpdateSchema } from "./schemas";
 
 describe("postalCodeSchema", () => {
@@ -58,5 +59,22 @@ describe("stockUpdateSchema", () => {
   it("accepts null to remove the quantity, but requires the field", () => {
     expect(stockUpdateSchema.parse({ stock: null })).toEqual({ stock: null });
     expect(stockUpdateSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("name and description limits", () => {
+  const message = (schema: typeof productInputSchema | typeof shopInputSchema, input: object) =>
+    schema.safeParse(input).error?.issues[0]?.message;
+  const shop = { postalCode: "28001", shopTypeId: "1", lat: "40.4", lng: "-3.7" };
+
+  it.each([
+    ["product", productInputSchema, {}],
+    ["shop", shopInputSchema, shop],
+  ] as const)("rejects a too long %s name or description in Spanish", (_label, schema, rest) => {
+    expect(message(schema, { ...rest, name: "x".repeat(NAME_MAX_LENGTH + 1) })).toBe("El nombre no puede superar los 100 caracteres");
+    expect(message(schema, { ...rest, name: "Pan", description: "x".repeat(DESCRIPTION_MAX_LENGTH + 1) })).toBe(
+      "La descripción no puede superar los 1000 caracteres",
+    );
+    expect(schema.safeParse({ ...rest, name: "x".repeat(NAME_MAX_LENGTH), description: "x".repeat(DESCRIPTION_MAX_LENGTH) }).success).toBe(true);
   });
 });

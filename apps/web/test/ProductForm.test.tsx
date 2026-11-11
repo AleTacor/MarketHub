@@ -103,6 +103,25 @@ describe("ProductForm — create", () => {
     expect(screen.getByRole("button", { name: "Añadir producto" })).toBeEnabled();
   });
 
+  it("counts the characters of name and description against their limits", async () => {
+    const { user } = renderForm();
+    expect(screen.getByLabelText("Nombre")).toHaveAccessibleDescription("0/100 caracteres");
+    expect(screen.getByLabelText("Descripción")).toHaveAccessibleDescription("0/1000 caracteres");
+
+    await user.type(screen.getByLabelText("Descripción"), "De mantequilla");
+    expect(screen.getByLabelText("Descripción")).toHaveAccessibleDescription("14/1000 caracteres");
+    expect(screen.getByLabelText("Descripción")).toHaveAttribute("maxLength", "1000");
+  });
+
+  it("resets the counters after a successful create", async () => {
+    const { user } = renderForm();
+    await user.type(screen.getByLabelText("Nombre"), "Croissant");
+    expect(screen.getByLabelText("Nombre")).toHaveAccessibleDescription("9/100 caracteres");
+    await user.click(screen.getByRole("button", { name: "Añadir producto" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Nombre")).toHaveAccessibleDescription("0/100 caracteres"));
+  });
+
   it("gives each form its own field ids, so two forms on one page don't clash", () => {
     renderWithClient(
       <>
@@ -123,6 +142,12 @@ describe("ProductForm — edit", () => {
     expect(screen.getByLabelText("Descripción")).toHaveValue("Recién hecha");
     expect(screen.getByLabelText("Cantidad")).toHaveValue(12);
     expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "/uploads/pan.jpg");
+  });
+
+  it("counts the existing texts when editing", () => {
+    renderForm({ product: existing, submitLabel: "Guardar" });
+    expect(screen.getByLabelText("Nombre")).toHaveAccessibleDescription("12/100 caracteres");
+    expect(screen.getByLabelText("Descripción")).toHaveAccessibleDescription("12/1000 caracteres");
   });
 
   it("shows an empty quantity for a product without one", () => {

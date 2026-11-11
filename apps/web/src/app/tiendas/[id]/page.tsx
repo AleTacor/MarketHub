@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ExpandableText } from "@/components/ExpandableText";
 import { ShopLocationMap } from "@/components/maps";
 import { errorMessage } from "@/lib/api";
 import { PRODUCT_IMAGE, SHOP_IMAGE } from "@/lib/images";
@@ -27,9 +28,9 @@ export default function ShopPage() {
           <img src={shop.imageUrl} alt={shop.name} className={`${SHOP_IMAGE.className} w-full object-cover`} />
           <div className="p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-accent">{shop.shopType.name}</p>
-            <h1 className="text-2xl font-semibold">{shop.name}</h1>
+            <h1 className="break-anywhere text-2xl font-semibold">{shop.name}</h1>
             <p className="text-sm text-fg-subtle">Código postal {shop.postalCode}</p>
-            {shop.description && <p className="mt-3 whitespace-pre-line text-fg-muted">{shop.description}</p>}
+            {shop.description && <p className="break-anywhere mt-3 whitespace-pre-line text-fg-muted">{shop.description}</p>}
             {me && shop.ownerId === me.id && (
               <Link href={`/mis-tiendas/${shop.id}`} className="btn btn-sm mt-4">
                 Gestionar esta tienda
@@ -47,6 +48,7 @@ export default function ShopPage() {
         {shop.products.length === 0 ? (
           <p className="card p-6 text-center text-fg-subtle">Esta tienda todavía no tiene productos.</p>
         ) : (
+          // Grid items stretch: every card in a row is as tall as the tallest one.
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {shop.products.map((p) => (
               <li key={p.id} className="card overflow-hidden">
@@ -58,7 +60,7 @@ export default function ShopPage() {
                 )}
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold">{p.name}</h3>
+                    <h3 className="break-anywhere min-w-0 font-semibold">{p.name}</h3>
                     {/* No badge when the shop doesn't track a quantity. */}
                     {p.stock !== null && (
                       <span
@@ -70,7 +72,7 @@ export default function ShopPage() {
                       </span>
                     )}
                   </div>
-                  {p.description && <p className="mt-1 text-sm text-fg-muted">{p.description}</p>}
+                  {p.description && <ExpandableText text={p.description} className="mt-1 text-sm text-fg-muted" />}
                 </div>
               </li>
             ))}

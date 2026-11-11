@@ -107,6 +107,13 @@ describe("ShopForm — create", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("counts the characters of name and description against their limits", async () => {
+    const { user } = renderForm();
+    await user.type(screen.getByLabelText("Nombre"), "Panadería Luna");
+    expect(screen.getByLabelText("Nombre")).toHaveAccessibleDescription("14/100 caracteres");
+    expect(screen.getByLabelText("Descripción")).toHaveAccessibleDescription("0/1000 caracteres");
+  });
+
   it("requires an image when creating", () => {
     renderForm();
     expect(screen.getByLabelText("Imagen de la tienda")).toBeRequired();

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ROLES } from "./constants";
+import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, ROLES } from "./constants";
 
 /** Spanish postal code: 5 digits, province prefix 01–52. */
 export const postalCodeSchema = z
@@ -33,9 +33,16 @@ export type LoginInput = z.infer<typeof loginSchema>;
  * Shop fields. Sent as multipart/form-data (together with the image), so
  * numbers arrive as strings and are coerced.
  */
+const nameMax = `El nombre no puede superar los ${NAME_MAX_LENGTH} caracteres`;
+const descriptionField = z
+  .string()
+  .trim()
+  .max(DESCRIPTION_MAX_LENGTH, `La descripción no puede superar los ${DESCRIPTION_MAX_LENGTH} caracteres`)
+  .default("");
+
 export const shopInputSchema = z.object({
-  name: z.string().trim().min(2, "El nombre es obligatorio").max(100),
-  description: z.string().trim().max(1000).default(""),
+  name: z.string().trim().min(2, "El nombre es obligatorio").max(NAME_MAX_LENGTH, nameMax),
+  description: descriptionField,
   postalCode: postalCodeSchema,
   shopTypeId: z.coerce.number({ invalid_type_error: "Selecciona un tipo de tienda" }).int().positive("Selecciona un tipo de tienda"),
   // Rough bounding box of Spain, Canary Islands included.
@@ -54,8 +61,8 @@ export const stockSchema = z.coerce
 const optionalStockSchema = stockSchema.nullable();
 
 export const productInputSchema = z.object({
-  name: z.string().trim().min(1, "El nombre es obligatorio").max(100),
-  description: z.string().trim().max(1000).default(""),
+  name: z.string().trim().min(1, "El nombre es obligatorio").max(NAME_MAX_LENGTH, nameMax),
+  description: descriptionField,
   // Multipart sends an empty field (or none) when no quantity is given. Map that to
   // null before coercion, which would turn "" into 0.
   stock: z.preprocess((v) => (v === undefined || v === null || (typeof v === "string" && v.trim() === "") ? null : v), optionalStockSchema),

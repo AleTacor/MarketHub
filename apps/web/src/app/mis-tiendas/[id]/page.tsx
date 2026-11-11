@@ -69,11 +69,11 @@ function ManageShop({ id, userId }: { id: number; userId: number }) {
           <div className="flex flex-col gap-4 sm:flex-row">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={shop.imageUrl} alt={shop.name} className={`${SHOP_IMAGE.className} w-48 self-start rounded-lg object-cover`} />
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wide text-accent">{shop.shopType.name}</p>
-              <h1 className="text-2xl font-semibold">{shop.name}</h1>
+              <h1 className="break-anywhere text-2xl font-semibold">{shop.name}</h1>
               <p className="text-sm text-fg-subtle">Código postal {shop.postalCode}</p>
-              {shop.description && <p className="mt-2 text-sm text-fg-muted">{shop.description}</p>}
+              {shop.description && <p className="break-anywhere mt-2 whitespace-pre-line text-sm text-fg-muted">{shop.description}</p>}
             </div>
             <div className="flex gap-2 sm:flex-col">
               <button className="btn btn-sm" onClick={() => setEditingShop(true)}>
@@ -160,7 +160,7 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
         <div className={`${PRODUCT_IMAGE.className} w-16 rounded-lg bg-surface-muted`} />
       )}
       <div className="min-w-0 flex-1">
-        <p className="font-medium">{product.name}</p>
+        <p className="break-anywhere font-medium">{product.name}</p>
         <p className="truncate text-sm text-fg-subtle">{product.description || "Sin descripción"}</p>
       </div>
       <StockControl product={product} />

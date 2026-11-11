@@ -11,5 +11,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   cliente: "Cliente",
 };
 
+/** Length limits of shop and product texts (schemas and form counters). */
+export const NAME_MAX_LENGTH = 100;
+export const DESCRIPTION_MAX_LENGTH = 1000;
+
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;

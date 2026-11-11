@@ -1,10 +1,11 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
-import type { Product } from "@markethub/shared";
+import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, type Product } from "@markethub/shared";
 import { errorMessage } from "@/lib/api";
 import { PRODUCT_IMAGE } from "@/lib/images";
 import { ImageInput } from "./ImageInput";
+import { TextField } from "./TextField";
 
 export function ProductForm({
   product,
@@ -46,10 +47,7 @@ export function ProductForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-        <div>
-          <label className="label" htmlFor={`${id}-name`}>Nombre</label>
-          <input id={`${id}-name`} name="name" className="input" required maxLength={100} defaultValue={product?.name} />
-        </div>
+        <TextField id={`${id}-name`} name="name" label="Nombre" required maxLength={NAME_MAX_LENGTH} defaultValue={product?.name} />
         <div>
           <label className="label" htmlFor={`${id}-stock`}>Cantidad</label>
           {/* Optional: left empty, the product has no quantity. */}
@@ -67,10 +65,15 @@ export function ProductForm({
           <p id={`${id}-stock-hint`} className="mt-1 text-xs text-fg-subtle">Opcional</p>
         </div>
       </div>
-      <div>
-        <label className="label" htmlFor={`${id}-description`}>Descripción</label>
-        <textarea id={`${id}-description`} name="description" className="input min-h-16" maxLength={1000} defaultValue={product?.description} />
-      </div>
+      <TextField
+        id={`${id}-description`}
+        name="description"
+        label="Descripción"
+        multiline
+        className="min-h-16"
+        maxLength={DESCRIPTION_MAX_LENGTH}
+        defaultValue={product?.description}
+      />
       <ImageInput kind={PRODUCT_IMAGE} value={image} onChange={setImage} currentUrl={product?.imageUrl} label="Imagen del producto" />
       {error && <p className="error-box">{error}</p>}
       <div className="flex gap-2">

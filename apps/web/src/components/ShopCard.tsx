@@ -12,7 +12,7 @@ export function ShopCard({ shop, href = `/tiendas/${shop.id}` }: { shop: ShopSum
         <p className="text-xs text-fg-subtle">
           {shop.shopType.name} · CP {shop.postalCode}
         </p>
-        <p className="mt-1 line-clamp-2 text-sm text-fg-muted">{shop.description || "Sin descripción"}</p>
+        <p className="break-anywhere mt-1 line-clamp-2 text-sm text-fg-muted">{shop.description || "Sin descripción"}</p>
       </div>
     </Link>
   );

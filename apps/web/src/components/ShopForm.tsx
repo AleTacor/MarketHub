@@ -1,12 +1,13 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { postalCodeSchema, type ShopDetail } from "@markethub/shared";
+import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, postalCodeSchema, type ShopDetail } from "@markethub/shared";
 import { errorMessage } from "@/lib/api";
 import { SHOP_IMAGE } from "@/lib/images";
 import { useShopTypes } from "@/lib/hooks";
 import { AddressSearch } from "./AddressSearch";
 import { ImageInput } from "./ImageInput";
+import { TextField } from "./TextField";
 import { LocationPickerMap, type LatLng } from "./maps";
 
 /** Create / edit shop. Sends multipart/form-data so the image goes with the fields. */
@@ -56,14 +57,16 @@ export function ShopForm({
   return (
     <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
-        <div>
-          <label className="label" htmlFor="name">Nombre</label>
-          <input id="name" name="name" className="input" required maxLength={100} defaultValue={shop?.name} />
-        </div>
-        <div>
-          <label className="label" htmlFor="description">Descripción</label>
-          <textarea id="description" name="description" className="input min-h-24" maxLength={1000} defaultValue={shop?.description} />
-        </div>
+        <TextField id="name" name="name" label="Nombre" required maxLength={NAME_MAX_LENGTH} defaultValue={shop?.name} />
+        <TextField
+          id="description"
+          name="description"
+          label="Descripción"
+          multiline
+          className="min-h-24"
+          maxLength={DESCRIPTION_MAX_LENGTH}
+          defaultValue={shop?.description}
+        />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label" htmlFor="postalCode">Código postal</label>
