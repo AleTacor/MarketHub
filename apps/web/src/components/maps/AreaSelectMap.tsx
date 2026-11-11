@@ -16,6 +16,8 @@ export interface AreaSelectMapProps {
   onAreaChange: (area: GeoPolygon | null) => void;
   /** Change this value to remove the drawn area from outside. */
   clearKey: number;
+  /** An area to draw (editable) and zoom to, e.g. one saved in a previous session. */
+  restoredArea?: GeoPolygon | null;
   /** Zoom to the shops whenever they change (used for postal-code searches). */
   fitToShops: boolean;
 }
@@ -23,13 +25,25 @@ export interface AreaSelectMapProps {
 /** Toolbar button that deletes the drawn area in one click (replaces Geoman's removal mode). */
 const CLEAR_CONTROL = "clearArea";
 
-function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAreaChange" | "clearKey">) {
+function DrawControl({ onAreaChange, clearKey, restoredArea }: Pick<AreaSelectMapProps, "onAreaChange" | "clearKey" | "restoredArea">) {
   const map = useMap();
   const layerRef = useRef<L.Layer | null>(null);
   const callbackRef = useRef(onAreaChange);
   callbackRef.current = onAreaChange;
   const setClearDisabled = (disabled: boolean) =>
     map.pm.Toolbar.setButtonDisabled(CLEAR_CONTROL as Parameters<typeof map.pm.Toolbar.setButtonDisabled>[0], disabled);
+
+  const emit = (layer: L.Layer) => {
+    const geometry = (layer as L.Polygon).toGeoJSON().geometry;
+    if (geometry.type === "Polygon") callbackRef.current(geometry as GeoPolygon);
+  };
+  /** Makes `layer` the one area (replacing any other) and reports its edits. */
+  const setArea = (layer: L.Layer) => {
+    if (layerRef.current) map.removeLayer(layerRef.current);
+    layerRef.current = layer;
+    setClearDisabled(false);
+    layer.on("pm:edit", () => emit(layer));
+  };
 
   useEffect(() => {
     map.pm.setLang("es");
@@ -66,16 +80,8 @@ function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAre
     });
     setClearDisabled(true);
 
-    const emit = (layer: L.Layer) => {
-      const geometry = (layer as L.Polygon).toGeoJSON().geometry;
-      if (geometry.type === "Polygon") callbackRef.current(geometry as GeoPolygon);
-    };
     const onCreate = (e: { layer: L.Layer }) => {
-      // Only one area at a time.
-      if (layerRef.current) map.removeLayer(layerRef.current);
-      layerRef.current = e.layer;
-      setClearDisabled(false);
-      e.layer.on("pm:edit", () => emit(e.layer));
+      setArea(e.layer);
       emit(e.layer);
     };
 
@@ -95,6 +101,17 @@ function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAre
     }
   }, [clearKey, map]);
 
+  // Draw the restored area. No emit: the page already searches it.
+  useEffect(() => {
+    if (!restoredArea) return;
+    // GeoJSON is [lng, lat]; L.geoJSON handles the swap.
+    const layer = L.geoJSON(restoredArea).getLayers()[0] as L.Polygon | undefined;
+    if (!layer) return;
+    layer.addTo(map);
+    setArea(layer);
+    map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+  }, [restoredArea, map]);
+
   return null;
 }
 
@@ -107,11 +124,11 @@ function FitToShops({ shops, enabled }: { shops: ShopSummary[]; enabled: boolean
   return null;
 }
 
-export default function AreaSelectMap({ shops, onAreaChange, clearKey, fitToShops }: AreaSelectMapProps) {
+export default function AreaSelectMap({ shops, onAreaChange, clearKey, restoredArea, fitToShops }: AreaSelectMapProps) {
   return (
     <MapContainer center={SPAIN_CENTER} zoom={SPAIN_ZOOM} className="h-full w-full">
       <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
-      <DrawControl onAreaChange={onAreaChange} clearKey={clearKey} />
+      <DrawControl onAreaChange={onAreaChange} clearKey={clearKey} restoredArea={restoredArea} />
       <FitToShops shops={shops} enabled={fitToShops} />
       {shops.map((s) => (
         <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={7} pathOptions={MARKER_STYLE}>

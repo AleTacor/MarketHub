@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeoPolygon } from "@markethub/shared";
 import SearchPage from "@/app/page";
 import { recorder, server } from "./msw";
+import { SEARCH_AREA_STORAGE_KEY } from "@/lib/savedArea";
 import { renderWithClient, shop } from "./render";
 
 const AREA: GeoPolygon = {
@@ -17,9 +18,16 @@ vi.mock("@/components/maps", () => ({
     shops: unknown[];
     onAreaChange: (a: GeoPolygon | null) => void;
     clearKey: number;
+    restoredArea?: GeoPolygon | null;
     fitToShops: boolean;
   }) => (
-    <div data-testid="map" data-shops={props.shops.length} data-clear-key={props.clearKey} data-fit={String(props.fitToShops)}>
+    <div
+      data-testid="map"
+      data-shops={props.shops.length}
+      data-clear-key={props.clearKey}
+      data-fit={String(props.fitToShops)}
+      data-restored-area={props.restoredArea ? JSON.stringify(props.restoredArea) : ""}
+    >
       <button onClick={() => props.onAreaChange(AREA)}>Dibujar zona</button>
       <button onClick={() => props.onAreaChange(null)}>Borrar zona</button>
     </div>
@@ -197,5 +205,50 @@ describe("search page", () => {
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
     expect(await screen.findByText("Error interno del servidor")).toBeInTheDocument();
+  });
+
+  describe("saved area", () => {
+    const saved = () => localStorage.getItem(SEARCH_AREA_STORAGE_KEY);
+
+    it("remembers the drawn area, and forgets it when removed", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+      expect(JSON.parse(saved()!)).toEqual(AREA);
+
+      await user.click(screen.getByRole("button", { name: "Borrar zona" }));
+      expect(saved()).toBeNull();
+    });
+
+    it("draws and searches the saved area on load", async () => {
+      localStorage.setItem(SEARCH_AREA_STORAGE_KEY, JSON.stringify(AREA));
+      renderWithClient(<SearchPage />);
+
+      expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
+      expect(areaCalls.calls[0]!.body).toEqual({ area: AREA });
+      expect(JSON.parse(map().getAttribute("data-restored-area")!)).toEqual(AREA);
+      expect(map()).toHaveAttribute("data-fit", "false");
+    });
+
+    it.each([["not JSON", "{oops"], ["not a polygon", JSON.stringify({ type: "Point", coordinates: [-3.7, 40.4] })]])(
+      "ignores a saved value that is %s",
+      async (_label, value) => {
+        localStorage.setItem(SEARCH_AREA_STORAGE_KEY, value);
+        renderWithClient(<SearchPage />);
+
+        expect(screen.getByText("Aún no has buscado nada.")).toBeInTheDocument();
+        expect(map()).toHaveAttribute("data-restored-area", "");
+        expect(areaCalls.calls).toHaveLength(0);
+      },
+    );
+
+    it("forgets the area when searching by postal code", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+      await user.type(cpInput(), "28013");
+      await user.click(searchButton());
+
+      await waitFor(() => expect(listCalls.calls).toHaveLength(1));
+      expect(saved()).toBeNull();
+    });
   });
 });

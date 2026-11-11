@@ -47,7 +47,7 @@ Backends mount their routes **with the full `/api/...` prefix**. nginx does not 
 ### Geo / search
 
 - `shops.location` is `geography(Point, 4326)` with a GiST index. Insert with `ST_MakePoint(lng, lat)`. Note the order: **lng first**.
-- Map area search: the frontend sends the drawn shape (rectangle or polygon, via Leaflet-Geoman) as GeoJSON to `POST /api/shops/search-area`. The backend runs `ST_Intersects(location, polygon)` and returns `{ shops }`. It is purely location-based: postal codes play no part (there is no postal-code polygon dataset, deliberately).
+- Map area search: the frontend sends the drawn shape (rectangle or polygon, via Leaflet-Geoman) as GeoJSON to `POST /api/shops/search-area`. The backend runs `ST_Intersects(location, polygon)` and returns `{ shops }`. It is purely location-based: postal codes play no part (there is no postal-code polygon dataset, deliberately). The drawn area is kept in `localStorage["mh-search-area"]` (`src/lib/savedArea.ts`, validated with `geoPolygonSchema` on load). The search page restores it after mount and passes it to the map as `restoredArea`, which draws it (editable) and zooms to it. Removing the area or searching by postal code forgets it.
 - Postal code validation: `postalCodeSchema` in shared (5 digits, province 01–52).
 - Map tiles: OpenStreetMap. Maps are client-only (`next/dynamic` with `ssr:false`, see `apps/web/src/components/maps/index.tsx`). Markers are `CircleMarker`s, to avoid Leaflet's broken default icon images under bundlers.
 

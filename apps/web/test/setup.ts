@@ -43,6 +43,7 @@ window.FormData = globalThis.FormData = FormDataWithUploads as typeof FormData;
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   server.resetHandlers();
   resetNavigation();
 });

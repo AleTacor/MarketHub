@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { postalCodeSchema, type GeoPolygon, type ShopListResponse } from "@markethub/shared";
 import { AreaSelectMap } from "@/components/maps";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
+import { loadSearchArea, saveSearchArea } from "@/lib/savedArea";
 
 type Search =
   | { kind: "area"; area: GeoPolygon; q: string }
@@ -32,6 +33,16 @@ export default function SearchPage() {
   const [search, setSearch] = useState<Search | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [clearKey, setClearKey] = useState(0);
+  /** Area saved in a previous session, for the map to draw again. */
+  const [restoredArea, setRestoredArea] = useState<GeoPolygon | null>(null);
+
+  // Restore after mount: localStorage doesn't exist during SSR.
+  useEffect(() => {
+    const area = loadSearchArea();
+    if (!area) return;
+    setRestoredArea(area);
+    setSearch({ kind: "area", area, q: "" });
+  }, []);
 
   const { data, isFetching, error } = useQuery({
     queryKey: ["shops", "search", search],
@@ -49,6 +60,7 @@ export default function SearchPage() {
       const cp = postalCodeSchema.safeParse(postalCode);
       if (!cp.success) return setFormError(cp.error.issues[0]!.message);
       setClearKey((k) => k + 1); // a postal code search replaces the drawn area
+      saveSearchArea(null);
       return setSearch({ kind: "postalCode", postalCode: cp.data, q });
     }
     if (search?.kind === "area") return setSearch({ ...search, q });
@@ -59,6 +71,7 @@ export default function SearchPage() {
   const handleAreaChange = useCallback(
     (area: GeoPolygon | null) => {
       setFormError(null);
+      saveSearchArea(area);
       if (area) {
         setPostalCode("");
         setSearch({ kind: "area", area, q: name.trim() });
@@ -105,6 +118,7 @@ export default function SearchPage() {
             shops={shops}
             onAreaChange={handleAreaChange}
             clearKey={clearKey}
+            restoredArea={restoredArea}
             fitToShops={search?.kind !== "area"}
           />
         </div>
