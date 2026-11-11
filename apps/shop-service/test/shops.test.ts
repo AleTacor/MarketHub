@@ -23,45 +23,77 @@ describe("GET /api/shop-types", () => {
   });
 });
 
+const shops = (n: number, from = 1) => Array.from({ length: n }, (_, i) => sampleShop({ id: from + i }));
+
 describe("GET /api/shops", () => {
-  it("searches by postal code and name without a session", async () => {
-    ctx.repo.searchShops.mockResolvedValue([sampleShop()]);
+  it("returns the first page of a postal code + name search, without a session", async () => {
+    ctx.repo.searchShopsPage.mockResolvedValue({ shops: shops(10), total: 23 });
     const res = await request(ctx.app).get("/api/shops").query({ postalCode: "28001", q: "luna" }).expect(200);
-    expect(ctx.repo.searchShops).toHaveBeenCalledWith({ postalCode: "28001", q: "luna" });
-    expect(res.body.shops).toHaveLength(1);
+
+    expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ postalCode: "28001", q: "luna" }, { offset: 0, limit: 10 });
+    expect(res.body).toMatchObject({ total: 23, nextOffset: 10 });
+    expect(res.body.shops).toHaveLength(10);
   });
 
-  it("allows searching by name only", async () => {
-    await request(ctx.app).get("/api/shops").query({ q: "luna" }).expect(200);
-    expect(ctx.repo.searchShops).toHaveBeenCalledWith({ q: "luna" });
+  it("returns a later page from its offset", async () => {
+    ctx.repo.searchShopsPage.mockResolvedValue({ shops: shops(10, 11), total: 23 });
+    const res = await request(ctx.app).get("/api/shops").query({ q: "luna", offset: "10" }).expect(200);
+
+    expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ q: "luna" }, { offset: 10, limit: 10 });
+    expect(res.body.nextOffset).toBe(20);
+  });
+
+  it.each([
+    ["the last page", { shops: shops(3, 21), total: 23 }, "20"],
+    ["a single short page", { shops: shops(4), total: 4 }, "0"],
+    ["no results", { shops: [], total: 0 }, "0"],
+  ])("has no next page after %s", async (_label, page, offset) => {
+    ctx.repo.searchShopsPage.mockResolvedValue(page);
+    const res = await request(ctx.app).get("/api/shops").query({ q: "luna", offset }).expect(200);
+    expect(res.body.nextOffset).toBeNull();
   });
 
   it("requires a postal code or a name", async () => {
     const res = await request(ctx.app).get("/api/shops").expect(400);
     expect(res.body.error).toBe("Indica un código postal o un nombre");
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 
   it("rejects a non-Spanish postal code", async () => {
     const res = await request(ctx.app).get("/api/shops").query({ postalCode: "99999" }).expect(400);
     expect(res.body.error).toMatch(/código postal/);
-    expect(ctx.repo.searchShops).not.toHaveBeenCalled();
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
+  });
+
+  it.each(["-1", "2.5", "abc", "10001"])("rejects the offset %s", async (offset) => {
+    await request(ctx.app).get("/api/shops").query({ q: "luna", offset }).expect(400, { error: "Página no válida" });
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 });
 
 describe("POST /api/shops/search-area", () => {
-  it("passes the polygon to the repo and returns just the shops", async () => {
-    ctx.repo.searchShops.mockResolvedValue([
-      sampleShop({ id: 1, postalCode: "28013" }),
-      sampleShop({ id: 2, postalCode: "28001" }),
-      sampleShop({ id: 3, postalCode: "28013" }),
-    ]);
-    const area = { type: "Polygon", coordinates: [square] };
+  const area = { type: "Polygon", coordinates: [square] };
+
+  it("returns a page of the shops inside the polygon", async () => {
+    ctx.repo.searchShopsPage.mockResolvedValue({ shops: shops(10), total: 12 });
 
     const res = await request(ctx.app).post("/api/shops/search-area").send({ area, q: "pan" }).expect(200);
 
-    expect(ctx.repo.searchShops).toHaveBeenCalledWith({ area, q: "pan" });
-    expect(Object.keys(res.body)).toEqual(["shops"]);
-    expect(res.body.shops).toHaveLength(3);
+    expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ area, q: "pan" }, { offset: 0, limit: 10 });
+    expect(Object.keys(res.body).sort()).toEqual(["nextOffset", "shops", "total"]);
+    expect(res.body).toMatchObject({ total: 12, nextOffset: 10 });
+  });
+
+  it("takes the offset from the body", async () => {
+    ctx.repo.searchShopsPage.mockResolvedValue({ shops: shops(2, 11), total: 12 });
+    const res = await request(ctx.app).post("/api/shops/search-area").send({ area, offset: 10 }).expect(200);
+    expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ area, q: undefined }, { offset: 10, limit: 10 });
+    expect(res.body.nextOffset).toBeNull();
+  });
+
+  it("explains a bad offset as such, not as a bad area", async () => {
+    await request(ctx.app).post("/api/shops/search-area").send({ area, offset: -1 }).expect(400, { error: "Página no válida" });
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 
   it.each([

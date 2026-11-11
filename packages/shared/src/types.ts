@@ -41,6 +41,15 @@ export interface ShopListResponse {
   shops: ShopSummary[];
 }
 
+/** One page of search results. */
+export interface ShopSearchPage {
+  shops: ShopSummary[];
+  /** Matching shops across all pages. */
+  total: number;
+  /** `offset` of the next page, or null on the last one. */
+  nextOffset: number | null;
+}
+
 /** One match for an address typed by a shop owner. */
 export interface GeocodeResult {
   /** Full address as returned by the geocoder, to show in the list. */

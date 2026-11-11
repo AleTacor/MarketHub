@@ -1,29 +1,32 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { postalCodeSchema, type GeoPolygon, type ShopListResponse } from "@markethub/shared";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { postalCodeSchema, type GeoPolygon, type ShopSearchPage } from "@markethub/shared";
 import { AreaSelectMap } from "@/components/maps";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
 import { loadSavedSearch, saveSearch } from "@/lib/savedSearch";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 
 type Search =
   | { kind: "area"; area: GeoPolygon; q: string }
   | { kind: "postalCode"; postalCode: string; q: string }
   | { kind: "name"; q: string };
 
-function fetchShops(search: Search): Promise<ShopListResponse> {
+/** One page (SEARCH_PAGE_SIZE shops) of a search, starting at `offset`. */
+function fetchShops(search: Search, offset: number): Promise<ShopSearchPage> {
   if (search.kind === "area") {
-    return api<ShopListResponse>("/api/shops/search-area", {
+    return api<ShopSearchPage>("/api/shops/search-area", {
       method: "POST",
-      json: { area: search.area, q: search.q || undefined },
+      json: { area: search.area, q: search.q || undefined, offset: offset || undefined },
     });
   }
   const params = new URLSearchParams();
   if (search.kind === "postalCode") params.set("postalCode", search.postalCode);
   if (search.q) params.set("q", search.q);
-  return api<ShopListResponse>(`/api/shops?${params}`);
+  if (offset) params.set("offset", String(offset));
+  return api<ShopSearchPage>(`/api/shops?${params}`);
 }
 
 // Public: customers can search without an account.
@@ -48,13 +51,28 @@ export default function SearchPage() {
     }
   }, []);
 
-  const { data, isFetching, error } = useQuery({
+  const { data, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, error } = useInfiniteQuery({
     queryKey: ["shops", "search", search],
-    queryFn: () => fetchShops(search!),
+    queryFn: ({ pageParam }) => fetchShops(search!, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
     enabled: search !== null,
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
   });
-  const shops = search ? (data?.shops ?? []) : [];
+  const pages = search ? (data?.pages ?? []) : [];
+  const shops = pages.flatMap((p) => p.shops);
+  /** A new search is loading (not just the next page). */
+  const searching = isFetching && !isFetchingNextPage;
+
+  // Infinite scroll: load the next page as the end of the list comes into view.
+  const listRef = useRef<HTMLUListElement>(null);
+  const sentinelRef = useRef<HTMLLIElement>(null);
+  useInfiniteScroll({
+    sentinel: sentinelRef,
+    root: listRef,
+    enabled: Boolean(hasNextPage) && !isFetching,
+    onLoadMore: () => void fetchNextPage(),
+  });
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -126,7 +144,8 @@ export default function SearchPage() {
             onAreaChange={handleAreaChange}
             clearKey={clearKey}
             restoredArea={restoredArea}
-            fitToShops={search?.kind !== "area"}
+            // Fit to the first page only: loading more while scrolling shouldn't move the map.
+            fitToShops={search?.kind !== "area" && pages.length <= 1}
           />
         </div>
 
@@ -134,23 +153,36 @@ export default function SearchPage() {
         <section className="flex min-h-0 flex-col gap-3 lg:h-[calc(100vh-7rem)]">
           {!search && <p className="text-fg-subtle">Aún no has buscado nada.</p>}
           {error && <p className="error-box">{errorMessage(error)}</p>}
-          {search && !error && (
-            <div className="text-sm text-fg-subtle">
-              {isFetching ? "Buscando…" : `${shops.length} ${shops.length === 1 ? "tienda encontrada" : "tiendas encontradas"}`}
-              {!isFetching && search.kind === "area" && " en la zona dibujada"}
-            </div>
-          )}
+          {search && !error && searching && <p className="text-sm text-fg-subtle">Buscando…</p>}
           {shops.length > 0 && (
             // p-1: room for the cards' hover border/shadow, which overflow would clip.
-            <ul aria-label="Tiendas encontradas" className="-m-1 max-h-[70vh] min-h-0 flex-1 space-y-3 overflow-y-auto p-1 lg:max-h-none">
+            <ul
+              ref={listRef}
+              aria-label="Tiendas encontradas"
+              aria-busy={isFetchingNextPage}
+              className="-m-1 max-h-[70vh] min-h-0 flex-1 space-y-3 overflow-y-auto p-1 lg:max-h-none"
+            >
               {shops.map((shop) => (
                 <li key={shop.id}>
                   <ShopCard shop={shop} />
                 </li>
               ))}
+              {hasNextPage && (
+                // Watched by useInfiniteScroll; the button is the fallback (keyboard, no IntersectionObserver).
+                <li ref={sentinelRef} className="py-2 text-center">
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={isFetching}
+                    onClick={() => void fetchNextPage()}
+                  >
+                    {isFetchingNextPage ? "Cargando…" : "Cargar más tiendas"}
+                  </button>
+                </li>
+              )}
             </ul>
           )}
-          {search && !isFetching && !error && shops.length === 0 && (
+          {search && !searching && !error && shops.length === 0 && (
             <p className="card p-6 text-center text-fg-subtle">No hay tiendas que coincidan con tu búsqueda.</p>
           )}
         </section>

@@ -1,7 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GeoPolygon } from "@markethub/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { GeoPolygon, ShopSearchPage, ShopSummary } from "@markethub/shared";
 import SearchPage from "@/app/page";
 import { recorder, server } from "./msw";
 import { SAVED_SEARCH_STORAGE_KEY } from "@/lib/savedSearch";
@@ -34,6 +34,9 @@ vi.mock("@/components/maps", () => ({
   ),
 }));
 
+/** A one-page search response. */
+const page = (shops: ShopSummary[], total = shops.length, nextOffset: number | null = null): ShopSearchPage => ({ shops, total, nextOffset });
+
 let listCalls: ReturnType<typeof recorder>;
 let areaCalls: ReturnType<typeof recorder>;
 
@@ -46,16 +49,19 @@ beforeEach(() => {
   server.use(
     http.get("/api/shops", async ({ request }) => {
       await listCalls.record(request);
-      return HttpResponse.json({ shops: [luna, sol] });
+      return HttpResponse.json(page([luna, sol]));
     }),
     http.post("/api/shops/search-area", async ({ request }) => {
       await areaCalls.record(request);
-      return HttpResponse.json({ shops: [luna, sol] });
+      return HttpResponse.json(page([luna, sol]));
     }),
   );
 });
 
 const cpInput = () => screen.getByLabelText("Código postal");
+/** Waits until the result list shows `n` shops. */
+const expectResults = (n: number) =>
+  waitFor(() => expect(within(screen.getByRole("list", { name: "Tiendas encontradas" })).getAllByRole("link")).toHaveLength(n));
 const nameInput = () => screen.getByLabelText("Nombre de la tienda");
 const searchButton = () => screen.getByRole("button", { name: "Buscar" });
 const map = () => screen.getByTestId("map");
@@ -73,7 +79,7 @@ describe("search page", () => {
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
 
-    expect(await screen.findByText("2 tiendas encontradas")).toBeInTheDocument();
+    await expectResults(2);
     expect(listCalls.calls[0]!.url.searchParams.get("postalCode")).toBe("28001");
     expect(listCalls.calls[0]!.url.searchParams.has("q")).toBe(false);
 
@@ -127,14 +133,13 @@ describe("search page", () => {
     expect(screen.getByText("Introduce un código postal, un nombre o dibuja una zona en el mapa")).toBeInTheDocument();
   });
 
-  it("lists the results in their own scrollable list, with the count outside it", async () => {
+  it("lists the results in their own scrollable list", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
 
     const list = await screen.findByRole("list", { name: "Tiendas encontradas" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
     expect(list).toHaveClass("overflow-y-auto");
-    expect(within(list).queryByText(/tiendas encontradas/)).not.toBeInTheDocument();
   });
 
   it("shows each shop's type but not its postal code", async () => {
@@ -153,7 +158,7 @@ describe("search page", () => {
 
     await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
 
-    expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
+    await expectResults(2);
     expect(areaCalls.calls[0]!.body).toEqual({ area: AREA, q: "pan" });
     expect(cpInput()).toHaveValue(""); // the area replaces the postal code
     expect(map()).toHaveAttribute("data-fit", "false"); // don't move the map the user just drew on
@@ -185,13 +190,13 @@ describe("search page", () => {
     await waitFor(() => expect(listCalls.calls).toHaveLength(1));
     expect(map().getAttribute("data-clear-key")).not.toBe(clearKeyBefore);
     expect(map()).toHaveAttribute("data-fit", "true");
-    await waitFor(() => expect(screen.getByText("2 tiendas encontradas")).toBeInTheDocument());
+    await expectResults(2);
   });
 
   it("goes back to the empty state when the area is removed", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
-    await screen.findByText("2 tiendas encontradas en la zona dibujada");
+    await expectResults(2);
 
     await user.click(screen.getByRole("button", { name: "Borrar zona" }));
 
@@ -201,21 +206,20 @@ describe("search page", () => {
   });
 
   it("says so when nothing matches", async () => {
-    server.use(http.get("/api/shops", () => HttpResponse.json({ shops: [] })));
+    server.use(http.get("/api/shops", () => HttpResponse.json(page([]))));
     const { user } = renderWithClient(<SearchPage />);
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
 
     expect(await screen.findByText("No hay tiendas que coincidan con tu búsqueda.")).toBeInTheDocument();
-    expect(screen.getByText("0 tiendas encontradas")).toBeInTheDocument();
   });
 
-  it("uses the singular for one result", async () => {
-    server.use(http.get("/api/shops", () => HttpResponse.json({ shops: [luna] })));
+  it("doesn't show how many shops were found", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
-    expect(await screen.findByText("1 tienda encontrada")).toBeInTheDocument();
+    await expectResults(2);
+    expect(screen.queryByText(/encontrada/)).not.toBeInTheDocument();
   });
 
   it("shows the backend error message", async () => {
@@ -246,7 +250,7 @@ describe("search page", () => {
       store({ kind: "area", area: AREA });
       renderWithClient(<SearchPage />);
 
-      expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
+      await expectResults(2);
       expect(areaCalls.calls[0]!.body).toEqual({ area: AREA });
       expect(JSON.parse(map().getAttribute("data-restored-area")!)).toEqual(AREA);
       expect(map()).toHaveAttribute("data-fit", "false");
@@ -266,7 +270,7 @@ describe("search page", () => {
       store({ kind: "postalCode", postalCode: "28013" });
       renderWithClient(<SearchPage />);
 
-      expect(await screen.findByText("2 tiendas encontradas")).toBeInTheDocument();
+      await expectResults(2);
       expect(cpInput()).toHaveValue("28013");
       expect(new URL(listCalls.calls[0]!.url).searchParams.get("postalCode")).toBe("28013");
       expect(map()).toHaveAttribute("data-fit", "true"); // zoom to the shops found
@@ -276,7 +280,7 @@ describe("search page", () => {
     it("replaces a saved postal code with a drawn area", async () => {
       store({ kind: "postalCode", postalCode: "28013" });
       const { user } = renderWithClient(<SearchPage />);
-      await screen.findByText("2 tiendas encontradas");
+      await expectResults(2);
       await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
 
       expect(saved()).toEqual({ kind: "area", area: AREA });
@@ -286,7 +290,7 @@ describe("search page", () => {
     it("forgets the saved search on a name-only search", async () => {
       store({ kind: "postalCode", postalCode: "28013" });
       const { user } = renderWithClient(<SearchPage />);
-      await screen.findByText("2 tiendas encontradas");
+      await expectResults(2);
       await user.clear(cpInput());
       await user.type(nameInput(), "luna");
       await user.click(searchButton());
@@ -299,7 +303,7 @@ describe("search page", () => {
       localStorage.setItem("mh-search-area", JSON.stringify(AREA));
       renderWithClient(<SearchPage />);
 
-      expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
+      await expectResults(2);
       expect(saved()).toEqual({ kind: "area", area: AREA });
       expect(localStorage.getItem("mh-search-area")).toBeNull();
     });
@@ -318,6 +322,137 @@ describe("search page", () => {
       expect(map()).toHaveAttribute("data-restored-area", "");
       expect(areaCalls.calls).toHaveLength(0);
       expect(listCalls.calls).toHaveLength(0);
+    });
+  });
+
+  describe("pagination", () => {
+    const many = (n: number, from = 1) => Array.from({ length: n }, (_, i) => shop({ id: from + i, name: `Tienda ${from + i}` }));
+    let pageCalls: ReturnType<typeof recorder>;
+
+    /** 23 shops in pages of 10, like the API. */
+    beforeEach(() => {
+      pageCalls = recorder();
+      const all = many(23);
+      server.use(
+        http.get("/api/shops", async ({ request }) => {
+          await pageCalls.record(request);
+          const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0);
+          const next = offset + 10;
+          return HttpResponse.json(page(all.slice(offset, next), 23, next < 23 ? next : null));
+        }),
+      );
+    });
+
+    /** Stand-in for IntersectionObserver: `scrollToEnd()` makes the observed element visible. */
+    function fakeIntersectionObserver() {
+      const observers = new Set<{ cb: IntersectionObserverCallback; targets: Element[] }>();
+      vi.stubGlobal(
+        "IntersectionObserver",
+        class {
+          private entry: { cb: IntersectionObserverCallback; targets: Element[] };
+          constructor(cb: IntersectionObserverCallback) {
+            this.entry = { cb, targets: [] };
+            observers.add(this.entry);
+          }
+          observe(el: Element) {
+            this.entry.targets.push(el);
+          }
+          disconnect() {
+            observers.delete(this.entry);
+          }
+          unobserve() {}
+          takeRecords() {
+            return [];
+          }
+        },
+      );
+      return {
+        scrollToEnd: () =>
+          act(() => {
+            for (const o of [...observers]) {
+              o.cb(o.targets.map((target) => ({ target, isIntersecting: true }) as IntersectionObserverEntry), {} as IntersectionObserver);
+            }
+          }),
+      };
+    }
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    const offsets = () => pageCalls.calls.map((c) => new URL(c.url).searchParams.get("offset"));
+    const cards = () => within(screen.getByRole("list", { name: "Tiendas encontradas" })).getAllByRole("link");
+
+    async function searchByName(user: ReturnType<typeof renderWithClient>["user"]) {
+      await user.type(nameInput(), "tienda");
+      await user.click(searchButton());
+      await expectResults(10);
+    }
+
+    it("shows the first 10", async () => {
+      fakeIntersectionObserver();
+      const { user } = renderWithClient(<SearchPage />);
+      await searchByName(user);
+
+      expect(cards()).toHaveLength(10);
+      expect(offsets()).toEqual([null]);
+      expect(map()).toHaveAttribute("data-shops", "10");
+    });
+
+    it("loads the next pages when scrolling to the end, until there are no more", async () => {
+      const io = fakeIntersectionObserver();
+      const { user } = renderWithClient(<SearchPage />);
+      await searchByName(user);
+
+      io.scrollToEnd();
+      await waitFor(() => expect(cards()).toHaveLength(20));
+      io.scrollToEnd();
+      await waitFor(() => expect(cards()).toHaveLength(23));
+
+      expect(offsets()).toEqual([null, "10", "20"]);
+      expect(screen.queryByRole("button", { name: "Cargar más tiendas" })).not.toBeInTheDocument();
+      expect(map()).toHaveAttribute("data-shops", "23"); // the map shows everything loaded
+      expect(map()).toHaveAttribute("data-fit", "false"); // and stops re-fitting after page 1
+    });
+
+    it("has a button to load more without scrolling", async () => {
+      const { user } = renderWithClient(<SearchPage />); // no IntersectionObserver in jsdom
+      await searchByName(user);
+
+      await user.click(screen.getByRole("button", { name: "Cargar más tiendas" }));
+      await waitFor(() => expect(cards()).toHaveLength(20));
+      expect(offsets()).toEqual([null, "10"]);
+    });
+
+    it("sends the offset for area searches too", async () => {
+      areaCalls = recorder();
+      server.use(
+        http.post("/api/shops/search-area", async ({ request }) => {
+          await areaCalls.record(request);
+          const { offset = 0 } = (await request.clone().json()) as { offset?: number };
+          return HttpResponse.json(page(many(10, offset + 1), 15, offset === 0 ? 10 : null));
+        }),
+      );
+      const { user } = renderWithClient(<SearchPage />);
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+      await expectResults(10);
+
+      await user.click(screen.getByRole("button", { name: "Cargar más tiendas" }));
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(2));
+      expect(areaCalls.calls[0]!.body).toEqual({ area: AREA });
+      expect(areaCalls.calls[1]!.body).toEqual({ area: AREA, offset: 10 });
+    });
+
+    it("starts again from the first page on a new search", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await searchByName(user);
+      await user.click(screen.getByRole("button", { name: "Cargar más tiendas" }));
+      await waitFor(() => expect(cards()).toHaveLength(20));
+
+      await user.type(nameInput(), " 1");
+      await user.click(searchButton());
+
+      await waitFor(() => expect(pageCalls.calls).toHaveLength(3));
+      expect(new URL(pageCalls.calls[2]!.url).searchParams.get("offset")).toBeNull();
+      await waitFor(() => expect(cards()).toHaveLength(10));
     });
   });
 });

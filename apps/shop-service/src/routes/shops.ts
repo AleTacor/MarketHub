@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { areaSearchSchema, shopInputSchema, shopQuerySchema, type ShopListResponse } from "@markethub/shared";
+import { areaSearchSchema, SEARCH_PAGE_SIZE, shopInputSchema, shopQuerySchema, type GeoPolygon, type ShopListResponse, type ShopSearchPage } from "@markethub/shared";
 import type { Auth } from "../auth";
 import { HttpError } from "../errors";
 import type { Repository } from "../repository";
@@ -23,20 +23,30 @@ export function shopsRouter(repo: Repository, { requireBusiness }: Auth) {
     res.json({ shopTypes: await repo.listShopTypes() });
   });
 
-  // List by postal code and/or name.
+  /** Runs one page of a search and says where the next one starts. */
+  const searchPage = async (filters: { postalCode?: string; q?: string; area?: GeoPolygon }, offset: number) => {
+    const { shops, total } = await repo.searchShopsPage(filters, { offset, limit: SEARCH_PAGE_SIZE });
+    const next = offset + shops.length;
+    const body: ShopSearchPage = { shops, total, nextOffset: shops.length > 0 && next < total ? next : null };
+    return body;
+  };
+
+  // List by postal code and/or name, a page at a time.
   r.get("/shops", async (req, res) => {
-    const filters = shopQuerySchema.parse(req.query);
-    const body: ShopListResponse = { shops: await repo.searchShops(filters) };
-    res.json(body);
+    const { offset, ...filters } = shopQuerySchema.parse(req.query);
+    res.json(await searchPage(filters, offset));
   });
 
   // Shops whose location falls inside the polygon drawn on the map (location only, no postal codes).
   r.post("/shops/search-area", async (req, res) => {
     const parsed = areaSearchSchema.safeParse(req.body);
-    if (!parsed.success) throw new HttpError(400, "La zona seleccionada en el mapa no es válida");
-    const { area, q } = parsed.data;
-    const body: ShopListResponse = { shops: await repo.searchShops({ area, q }) };
-    res.json(body);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]!;
+      // Polygon errors are too technical to show; the rest (offset) have Spanish messages.
+      throw new HttpError(400, issue.path[0] === "area" ? "La zona seleccionada en el mapa no es válida" : issue.message);
+    }
+    const { area, q, offset } = parsed.data;
+    res.json(await searchPage({ area, q }, offset));
   });
 
   r.get("/shops/mine", ...requireBusiness, async (req, res) => {

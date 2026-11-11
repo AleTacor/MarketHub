@@ -75,6 +75,25 @@ export function createRepository(db: Knex) {
       return (await query).map(toShop);
     },
 
+    /** One page of a search. Ordered by name, then id, so pages never overlap or skip. */
+    async searchShopsPage(filters: { postalCode?: string; q?: string; area?: GeoPolygon }, { offset, limit }: { offset: number; limit: number }) {
+      const query = shopQuery()
+        .select(db.raw("count(*) OVER() AS total"))
+        .orderBy([{ column: "s.name" }, { column: "s.id" }])
+        .offset(offset)
+        .limit(limit);
+      if (filters.postalCode) query.where("s.postal_code", filters.postalCode);
+      if (filters.q) query.whereRaw("s.name ILIKE ?", [`%${escapeLike(filters.q)}%`]);
+      if (filters.area) {
+        query.whereRaw("ST_Intersects(s.location, ST_SetSRID(ST_GeomFromGeoJSON(?), 4326)::geography)", [
+          JSON.stringify(filters.area),
+        ]);
+      }
+      const rows = (await query) as (ShopRow & { total: string })[];
+      // count(*) is a bigint, which pg returns as a string. Past the last page there are no rows to carry it.
+      return { shops: rows.map(toShop), total: rows.length ? Number(rows[0]!.total) : 0 };
+    },
+
     async getShop(id: number): Promise<ShopDetail | null> {
       const row = await shopQuery().where("s.id", id).first();
       if (!row) return null;

@@ -72,10 +72,19 @@ export type ProductInput = z.infer<typeof productInputSchema>;
 // JSON body: `{ stock: null }` removes the quantity; a missing `stock` is an error.
 export const stockUpdateSchema = z.object({ stock: optionalStockSchema });
 
+/** Position of the first result of a page (pages have SEARCH_PAGE_SIZE shops). */
+const offsetField = z.coerce
+  .number({ invalid_type_error: "Página no válida" })
+  .int("Página no válida")
+  .min(0, "Página no válida")
+  .max(10_000, "Página no válida")
+  .default(0);
+
 export const shopQuerySchema = z
   .object({
     postalCode: postalCodeSchema.optional(),
     q: z.string().trim().max(100).optional(),
+    offset: offsetField,
   })
   .refine((v) => v.postalCode || v.q, { message: "Indica un código postal o un nombre" });
 
@@ -91,6 +100,7 @@ export type GeoPolygon = z.infer<typeof geoPolygonSchema>;
 export const areaSearchSchema = z.object({
   area: geoPolygonSchema,
   q: z.string().trim().max(100).optional(),
+  offset: offsetField,
 });
 export type AreaSearchInput = z.infer<typeof areaSearchSchema>;
 

@@ -15,5 +15,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const NAME_MAX_LENGTH = 100;
 export const DESCRIPTION_MAX_LENGTH = 1000;
 
+/** Shops per page of search results (infinite scroll). */
+export const SEARCH_PAGE_SIZE = 10;
+
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;

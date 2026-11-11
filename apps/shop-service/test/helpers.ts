@@ -14,6 +14,7 @@ export function fakeRepo(): RepoMock {
   return {
     listShopTypes: vi.fn(async () => [{ id: 1, name: "Panadería y pastelería" }]),
     searchShops: vi.fn(async () => []),
+    searchShopsPage: vi.fn(async () => ({ shops: [], total: 0 })),
     getShop: vi.fn(async () => null),
     getShopOwner: vi.fn(async () => undefined),
     createShop: vi.fn(async () => 1),
