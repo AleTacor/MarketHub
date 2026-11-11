@@ -6,7 +6,7 @@ import { postalCodeSchema, type GeoPolygon, type ShopListResponse } from "@marke
 import { AreaSelectMap } from "@/components/maps";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
-import { loadSearchArea, saveSearchArea } from "@/lib/savedArea";
+import { loadSavedSearch, saveSearch } from "@/lib/savedSearch";
 
 type Search =
   | { kind: "area"; area: GeoPolygon; q: string }
@@ -36,12 +36,16 @@ export default function SearchPage() {
   /** Area saved in a previous session, for the map to draw again. */
   const [restoredArea, setRestoredArea] = useState<GeoPolygon | null>(null);
 
-  // Restore after mount: localStorage doesn't exist during SSR.
+  // Restore the last area / postal-code search after mount (localStorage doesn't exist during SSR).
   useEffect(() => {
-    const area = loadSearchArea();
-    if (!area) return;
-    setRestoredArea(area);
-    setSearch({ kind: "area", area, q: "" });
+    const saved = loadSavedSearch();
+    if (saved?.kind === "area") {
+      setRestoredArea(saved.area);
+      setSearch({ kind: "area", area: saved.area, q: "" });
+    } else if (saved?.kind === "postalCode") {
+      setPostalCode(saved.postalCode);
+      setSearch({ kind: "postalCode", postalCode: saved.postalCode, q: "" });
+    }
   }, []);
 
   const { data, isFetching, error } = useQuery({
@@ -60,18 +64,21 @@ export default function SearchPage() {
       const cp = postalCodeSchema.safeParse(postalCode);
       if (!cp.success) return setFormError(cp.error.issues[0]!.message);
       setClearKey((k) => k + 1); // a postal code search replaces the drawn area
-      saveSearchArea(null);
+      saveSearch({ kind: "postalCode", postalCode: cp.data });
       return setSearch({ kind: "postalCode", postalCode: cp.data, q });
     }
     if (search?.kind === "area") return setSearch({ ...search, q });
-    if (q) return setSearch({ kind: "name", q });
+    if (q) {
+      saveSearch(null); // a name-only search isn't remembered, and replaces the saved one
+      return setSearch({ kind: "name", q });
+    }
     setFormError("Introduce un código postal, un nombre o dibuja una zona en el mapa");
   }
 
   const handleAreaChange = useCallback(
     (area: GeoPolygon | null) => {
       setFormError(null);
-      saveSearchArea(area);
+      saveSearch(area && { kind: "area", area });
       if (area) {
         setPostalCode("");
         setSearch({ kind: "area", area, q: name.trim() });
@@ -123,7 +130,8 @@ export default function SearchPage() {
           />
         </div>
 
-        <section className="space-y-3">
+        {/* Fixed height (the map's, on desktop): many results scroll inside instead of growing the page. */}
+        <section className="flex min-h-0 flex-col gap-3 lg:h-[calc(100vh-7rem)]">
           {!search && <p className="text-fg-subtle">Aún no has buscado nada.</p>}
           {error && <p className="error-box">{errorMessage(error)}</p>}
           {search && !error && (
@@ -132,9 +140,16 @@ export default function SearchPage() {
               {!isFetching && search.kind === "area" && " en la zona dibujada"}
             </div>
           )}
-          {shops.map((shop) => (
-            <ShopCard key={shop.id} shop={shop} />
-          ))}
+          {shops.length > 0 && (
+            // p-1: room for the cards' hover border/shadow, which overflow would clip.
+            <ul aria-label="Tiendas encontradas" className="-m-1 max-h-[70vh] min-h-0 flex-1 space-y-3 overflow-y-auto p-1 lg:max-h-none">
+              {shops.map((shop) => (
+                <li key={shop.id}>
+                  <ShopCard shop={shop} />
+                </li>
+              ))}
+            </ul>
+          )}
           {search && !isFetching && !error && shops.length === 0 && (
             <p className="card p-6 text-center text-fg-subtle">No hay tiendas que coincidan con tu búsqueda.</p>
           )}

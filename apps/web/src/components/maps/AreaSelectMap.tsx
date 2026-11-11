@@ -137,7 +137,7 @@ export default function AreaSelectMap({ shops, onAreaChange, clearKey, restoredA
               {s.name}
             </a>
             <br />
-            {s.shopType.name} · CP {s.postalCode}
+            {s.shopType.name}
           </Popup>
         </CircleMarker>
       ))}

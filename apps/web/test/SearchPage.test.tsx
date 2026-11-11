@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeoPolygon } from "@markethub/shared";
 import SearchPage from "@/app/page";
 import { recorder, server } from "./msw";
-import { SEARCH_AREA_STORAGE_KEY } from "@/lib/savedArea";
+import { SAVED_SEARCH_STORAGE_KEY } from "@/lib/savedSearch";
 import { renderWithClient, shop } from "./render";
 
 const AREA: GeoPolygon = {
@@ -127,6 +127,25 @@ describe("search page", () => {
     expect(screen.getByText("Introduce un código postal, un nombre o dibuja una zona en el mapa")).toBeInTheDocument();
   });
 
+  it("lists the results in their own scrollable list, with the count outside it", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+
+    const list = await screen.findByRole("list", { name: "Tiendas encontradas" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(list).toHaveClass("overflow-y-auto");
+    expect(within(list).queryByText(/tiendas encontradas/)).not.toBeInTheDocument();
+  });
+
+  it("shows each shop's type but not its postal code", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+
+    const card = await screen.findByRole("link", { name: /Panadería Luna/ });
+    expect(card).toHaveTextContent("Panadería y pastelería");
+    expect(card).not.toHaveTextContent("28001");
+  });
+
   it("searches the drawn area by location", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.type(cpInput(), "28001");
@@ -207,20 +226,24 @@ describe("search page", () => {
     expect(await screen.findByText("Error interno del servidor")).toBeInTheDocument();
   });
 
-  describe("saved area", () => {
-    const saved = () => localStorage.getItem(SEARCH_AREA_STORAGE_KEY);
+  describe("saved search", () => {
+    const saved = () => {
+      const raw = localStorage.getItem(SAVED_SEARCH_STORAGE_KEY);
+      return raw && JSON.parse(raw);
+    };
+    const store = (value: unknown) => localStorage.setItem(SAVED_SEARCH_STORAGE_KEY, typeof value === "string" ? value : JSON.stringify(value));
 
     it("remembers the drawn area, and forgets it when removed", async () => {
       const { user } = renderWithClient(<SearchPage />);
       await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
-      expect(JSON.parse(saved()!)).toEqual(AREA);
+      expect(saved()).toEqual({ kind: "area", area: AREA });
 
       await user.click(screen.getByRole("button", { name: "Borrar zona" }));
       expect(saved()).toBeNull();
     });
 
     it("draws and searches the saved area on load", async () => {
-      localStorage.setItem(SEARCH_AREA_STORAGE_KEY, JSON.stringify(AREA));
+      store({ kind: "area", area: AREA });
       renderWithClient(<SearchPage />);
 
       expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
@@ -229,26 +252,72 @@ describe("search page", () => {
       expect(map()).toHaveAttribute("data-fit", "false");
     });
 
-    it.each([["not JSON", "{oops"], ["not a polygon", JSON.stringify({ type: "Point", coordinates: [-3.7, 40.4] })]])(
-      "ignores a saved value that is %s",
-      async (_label, value) => {
-        localStorage.setItem(SEARCH_AREA_STORAGE_KEY, value);
-        renderWithClient(<SearchPage />);
-
-        expect(screen.getByText("Aún no has buscado nada.")).toBeInTheDocument();
-        expect(map()).toHaveAttribute("data-restored-area", "");
-        expect(areaCalls.calls).toHaveLength(0);
-      },
-    );
-
-    it("forgets the area when searching by postal code", async () => {
+    it("remembers a postal code search, replacing the saved area", async () => {
       const { user } = renderWithClient(<SearchPage />);
       await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
       await user.type(cpInput(), "28013");
       await user.click(searchButton());
 
       await waitFor(() => expect(listCalls.calls).toHaveLength(1));
+      expect(saved()).toEqual({ kind: "postalCode", postalCode: "28013" });
+    });
+
+    it("fills in and searches the saved postal code on load", async () => {
+      store({ kind: "postalCode", postalCode: "28013" });
+      renderWithClient(<SearchPage />);
+
+      expect(await screen.findByText("2 tiendas encontradas")).toBeInTheDocument();
+      expect(cpInput()).toHaveValue("28013");
+      expect(new URL(listCalls.calls[0]!.url).searchParams.get("postalCode")).toBe("28013");
+      expect(map()).toHaveAttribute("data-fit", "true"); // zoom to the shops found
+      expect(map()).toHaveAttribute("data-restored-area", "");
+    });
+
+    it("replaces a saved postal code with a drawn area", async () => {
+      store({ kind: "postalCode", postalCode: "28013" });
+      const { user } = renderWithClient(<SearchPage />);
+      await screen.findByText("2 tiendas encontradas");
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+
+      expect(saved()).toEqual({ kind: "area", area: AREA });
+      expect(cpInput()).toHaveValue("");
+    });
+
+    it("forgets the saved search on a name-only search", async () => {
+      store({ kind: "postalCode", postalCode: "28013" });
+      const { user } = renderWithClient(<SearchPage />);
+      await screen.findByText("2 tiendas encontradas");
+      await user.clear(cpInput());
+      await user.type(nameInput(), "luna");
+      await user.click(searchButton());
+
+      await waitFor(() => expect(listCalls.calls).toHaveLength(2));
       expect(saved()).toBeNull();
+    });
+
+    it("moves an area saved under the old key to the new one", async () => {
+      localStorage.setItem("mh-search-area", JSON.stringify(AREA));
+      renderWithClient(<SearchPage />);
+
+      expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
+      expect(saved()).toEqual({ kind: "area", area: AREA });
+      expect(localStorage.getItem("mh-search-area")).toBeNull();
+    });
+
+    it.each([
+      ["not JSON", "{oops"],
+      ["not a polygon", { kind: "area", area: { type: "Point", coordinates: [-3.7, 40.4] } }],
+      ["an invalid postal code", { kind: "postalCode", postalCode: "99999" }],
+      ["an unknown kind", { kind: "name", q: "pan" }],
+    ])("ignores a saved value that is %s", async (_label, value) => {
+      store(value);
+      renderWithClient(<SearchPage />);
+
+      expect(screen.getByText("Aún no has buscado nada.")).toBeInTheDocument();
+      expect(cpInput()).toHaveValue("");
+      expect(map()).toHaveAttribute("data-restored-area", "");
+      expect(areaCalls.calls).toHaveLength(0);
+      expect(listCalls.calls).toHaveLength(0);
     });
   });
 });

@@ -10,7 +10,7 @@ export function ShopCard({ shop, href = `/tiendas/${shop.id}` }: { shop: ShopSum
       <div className="min-w-0">
         <h3 className="truncate font-semibold">{shop.name}</h3>
         <p className="text-xs text-fg-subtle">
-          {shop.shopType.name} · CP {shop.postalCode}
+          {shop.shopType.name}
         </p>
         <p className="break-anywhere mt-1 line-clamp-2 text-sm text-fg-muted">{shop.description || "Sin descripción"}</p>
       </div>
