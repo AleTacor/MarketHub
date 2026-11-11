@@ -20,11 +20,16 @@ export interface AreaSelectMapProps {
   fitToShops: boolean;
 }
 
+/** Toolbar button that deletes the drawn area in one click (replaces Geoman's removal mode). */
+const CLEAR_CONTROL = "clearArea";
+
 function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAreaChange" | "clearKey">) {
   const map = useMap();
   const layerRef = useRef<L.Layer | null>(null);
   const callbackRef = useRef(onAreaChange);
   callbackRef.current = onAreaChange;
+  const setClearDisabled = (disabled: boolean) =>
+    map.pm.Toolbar.setButtonDisabled(CLEAR_CONTROL as Parameters<typeof map.pm.Toolbar.setButtonDisabled>[0], disabled);
 
   useEffect(() => {
     map.pm.setLang("es");
@@ -41,8 +46,25 @@ function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAre
       rotateMode: false,
       dragMode: false,
       editMode: true,
-      removalMode: true,
+      // There is only ever one area, so "pick a shape to delete" is a pointless step:
+      // CLEAR_CONTROL below deletes it directly.
+      removalMode: false,
     });
+    map.pm.Toolbar.createCustomControl({
+      name: CLEAR_CONTROL,
+      block: "edit",
+      title: "Borrar zona",
+      className: "control-icon leaflet-pm-icon-delete",
+      toggle: false,
+      onClick: () => {
+        if (!layerRef.current) return;
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+        setClearDisabled(true);
+        callbackRef.current(null);
+      },
+    });
+    setClearDisabled(true);
 
     const emit = (layer: L.Layer) => {
       const geometry = (layer as L.Polygon).toGeoJSON().geometry;
@@ -52,21 +74,15 @@ function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAre
       // Only one area at a time.
       if (layerRef.current) map.removeLayer(layerRef.current);
       layerRef.current = e.layer;
+      setClearDisabled(false);
       e.layer.on("pm:edit", () => emit(e.layer));
       emit(e.layer);
     };
-    const onRemove = (e: { layer: L.Layer }) => {
-      if (e.layer === layerRef.current) {
-        layerRef.current = null;
-        callbackRef.current(null);
-      }
-    };
 
     map.on("pm:create", onCreate);
-    map.on("pm:remove", onRemove);
     return () => {
       map.off("pm:create", onCreate);
-      map.off("pm:remove", onRemove);
+      map.pm.Toolbar.deleteControl(CLEAR_CONTROL);
       map.pm.removeControls();
     };
   }, [map]);
@@ -75,6 +91,7 @@ function DrawControl({ onAreaChange, clearKey }: Pick<AreaSelectMapProps, "onAre
     if (layerRef.current) {
       map.removeLayer(layerRef.current);
       layerRef.current = null;
+      setClearDisabled(true);
     }
   }, [clearKey, map]);
 
