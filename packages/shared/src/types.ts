@@ -41,12 +41,6 @@ export interface ShopListResponse {
   shops: ShopSummary[];
 }
 
-export interface AreaSearchResponse {
-  shops: ShopSummary[];
-  /** Distinct postal codes of the shops found inside the area. */
-  postalCodes: string[];
-}
-
 export interface ApiErrorBody {
   error: string;
 }

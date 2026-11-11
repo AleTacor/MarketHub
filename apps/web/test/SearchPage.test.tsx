@@ -42,7 +42,7 @@ beforeEach(() => {
     }),
     http.post("/api/shops/search-area", async ({ request }) => {
       await areaCalls.record(request);
-      return HttpResponse.json({ shops: [luna, sol], postalCodes: ["28001", "28013"] });
+      return HttpResponse.json({ shops: [luna, sol] });
     }),
   );
 });
@@ -119,14 +119,14 @@ describe("search page", () => {
     expect(screen.getByText("Introduce un código postal, un nombre o dibuja una zona en el mapa")).toBeInTheDocument();
   });
 
-  it("searches the drawn area and shows its postal codes", async () => {
+  it("searches the drawn area by location", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.type(cpInput(), "28001");
     await user.type(nameInput(), "pan");
 
     await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
 
-    expect(await screen.findByText(/Códigos postales en la zona: 28001, 28013/)).toBeInTheDocument();
+    expect(await screen.findByText("2 tiendas encontradas en la zona dibujada")).toBeInTheDocument();
     expect(areaCalls.calls[0]!.body).toEqual({ area: AREA, q: "pan" });
     expect(cpInput()).toHaveValue(""); // the area replaces the postal code
     expect(map()).toHaveAttribute("data-fit", "false"); // don't move the map the user just drew on
@@ -158,13 +158,13 @@ describe("search page", () => {
     await waitFor(() => expect(listCalls.calls).toHaveLength(1));
     expect(map().getAttribute("data-clear-key")).not.toBe(clearKeyBefore);
     expect(map()).toHaveAttribute("data-fit", "true");
-    await waitFor(() => expect(screen.queryByText(/Códigos postales en la zona/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("2 tiendas encontradas")).toBeInTheDocument());
   });
 
   it("goes back to the empty state when the area is removed", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
-    await screen.findByText("2 tiendas encontradas");
+    await screen.findByText("2 tiendas encontradas en la zona dibujada");
 
     await user.click(screen.getByRole("button", { name: "Borrar zona" }));
 

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState, type FormEvent } from "react";
-import { postalCodeSchema, type AreaSearchResponse, type GeoPolygon, type ShopListResponse } from "@markethub/shared";
+import { postalCodeSchema, type GeoPolygon, type ShopListResponse } from "@markethub/shared";
 import { AreaSelectMap } from "@/components/maps";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
@@ -12,9 +12,9 @@ type Search =
   | { kind: "postalCode"; postalCode: string; q: string }
   | { kind: "name"; q: string };
 
-function fetchShops(search: Search): Promise<AreaSearchResponse | ShopListResponse> {
+function fetchShops(search: Search): Promise<ShopListResponse> {
   if (search.kind === "area") {
-    return api<AreaSearchResponse>("/api/shops/search-area", {
+    return api<ShopListResponse>("/api/shops/search-area", {
       method: "POST",
       json: { area: search.area, q: search.q || undefined },
     });
@@ -40,7 +40,6 @@ export default function SearchPage() {
     placeholderData: (prev) => prev,
   });
   const shops = search ? (data?.shops ?? []) : [];
-  const areaPostalCodes = search?.kind === "area" && data && "postalCodes" in data ? data.postalCodes : null;
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -116,9 +115,7 @@ export default function SearchPage() {
           {search && !error && (
             <div className="text-sm text-fg-subtle">
               {isFetching ? "Buscando…" : `${shops.length} ${shops.length === 1 ? "tienda encontrada" : "tiendas encontradas"}`}
-              {areaPostalCodes && areaPostalCodes.length > 0 && (
-                <span> · Códigos postales en la zona: {areaPostalCodes.join(", ")}</span>
-              )}
+              {!isFetching && search.kind === "area" && " en la zona dibujada"}
             </div>
           )}
           {shops.map((shop) => (

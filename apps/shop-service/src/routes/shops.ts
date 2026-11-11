@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { areaSearchSchema, shopInputSchema, shopQuerySchema, type AreaSearchResponse, type ShopListResponse } from "@markethub/shared";
+import { areaSearchSchema, shopInputSchema, shopQuerySchema, type ShopListResponse } from "@markethub/shared";
 import type { Auth } from "../auth";
 import { HttpError } from "../errors";
 import type { Repository } from "../repository";
@@ -30,13 +30,12 @@ export function shopsRouter(repo: Repository, { requireBusiness }: Auth) {
     res.json(body);
   });
 
-  // Shops whose location falls inside the polygon drawn on the map.
+  // Shops whose location falls inside the polygon drawn on the map (location only, no postal codes).
   r.post("/shops/search-area", async (req, res) => {
     const parsed = areaSearchSchema.safeParse(req.body);
     if (!parsed.success) throw new HttpError(400, "La zona seleccionada en el mapa no es válida");
     const { area, q } = parsed.data;
-    const shops = await repo.searchShops({ area, q });
-    const body: AreaSearchResponse = { shops, postalCodes: [...new Set(shops.map((s) => s.postalCode))].sort() };
+    const body: ShopListResponse = { shops: await repo.searchShops({ area, q }) };
     res.json(body);
   });
 

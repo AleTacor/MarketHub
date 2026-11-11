@@ -49,7 +49,7 @@ describe("GET /api/shops", () => {
 });
 
 describe("POST /api/shops/search-area", () => {
-  it("passes the polygon to the repo and returns the distinct, sorted postal codes", async () => {
+  it("passes the polygon to the repo and returns just the shops", async () => {
     ctx.repo.searchShops.mockResolvedValue([
       sampleShop({ id: 1, postalCode: "28013" }),
       sampleShop({ id: 2, postalCode: "28001" }),
@@ -60,7 +60,7 @@ describe("POST /api/shops/search-area", () => {
     const res = await request(ctx.app).post("/api/shops/search-area").send({ area, q: "pan" }).expect(200);
 
     expect(ctx.repo.searchShops).toHaveBeenCalledWith({ area, q: "pan" });
-    expect(res.body.postalCodes).toEqual(["28001", "28013"]);
+    expect(Object.keys(res.body)).toEqual(["shops"]);
     expect(res.body.shops).toHaveLength(3);
   });
 
