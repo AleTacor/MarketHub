@@ -9,5 +9,11 @@ export const config = z
     UPLOAD_DIR: z.string().default("./uploads"),
     /** URL prefix under which nginx serves UPLOAD_DIR. */
     PUBLIC_UPLOAD_PATH: z.string().default("/uploads"),
+    /** Nominatim search endpoint (public OSM instance by default; self-host for real traffic). */
+    GEOCODER_URL: z.string().url().default("https://nominatim.openstreetmap.org/search"),
+    /** CartoCiudad (IGN) candidates endpoint, used to find exact house numbers. */
+    CARTOCIUDAD_URL: z.string().url().default("https://www.cartociudad.es/geocoder/api/geocoder/candidates"),
+    /** Nominatim requires an identifying User-Agent. Set one with a contact for production. */
+    GEOCODER_USER_AGENT: z.string().min(1).default("MarketHub/0.1 (local development)"),
   })
   .parse(process.env);

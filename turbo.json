@@ -30,6 +30,9 @@
         "AUTH_JWKS_URL",
         "UPLOAD_DIR",
         "PUBLIC_UPLOAD_PATH",
+        "GEOCODER_URL",
+        "CARTOCIUDAD_URL",
+        "GEOCODER_USER_AGENT",
         "AUTH_SERVICE_URL",
         "SHOP_SERVICE_URL"
       ]

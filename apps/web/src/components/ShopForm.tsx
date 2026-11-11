@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { postalCodeSchema, type ShopDetail } from "@markethub/shared";
 import { errorMessage } from "@/lib/api";
 import { SHOP_IMAGE } from "@/lib/images";
 import { useShopTypes } from "@/lib/hooks";
+import { AddressSearch } from "./AddressSearch";
 import { ImageInput } from "./ImageInput";
 import { LocationPickerMap, type LatLng } from "./maps";
 
@@ -22,6 +23,9 @@ export function ShopForm({
 }) {
   const { data: shopTypes = [] } = useShopTypes();
   const [location, setLocation] = useState<LatLng | null>(shop ? { lat: shop.lat, lng: shop.lng } : null);
+  /** Where the map should move to: set by the address search, not by clicks. */
+  const [mapFocus, setMapFocus] = useState<LatLng | null>(null);
+  const postalCodeRef = useRef<HTMLInputElement>(null);
   // Controlled: the options arrive after mount, and an uncontrolled defaultValue
   // would not select the shop's type once they do.
   const [shopTypeId, setShopTypeId] = useState(shop ? String(shop.shopType.id) : "");
@@ -64,6 +68,7 @@ export function ShopForm({
           <div>
             <label className="label" htmlFor="postalCode">Código postal</label>
             <input
+              ref={postalCodeRef}
               id="postalCode"
               name="postalCode"
               className="input"
@@ -110,10 +115,21 @@ export function ShopForm({
         </div>
       </div>
       <div>
-        <span className="label">Ubicación</span>
-        <p className="mb-2 text-xs text-fg-subtle">Haz clic en el mapa para marcar dónde está la tienda.</p>
+        <AddressSearch
+          onPick={(place) => {
+            const point = { lat: place.lat, lng: place.lng };
+            setLocation(point);
+            setMapFocus(point);
+            // The address determines the postal code; the field stays editable.
+            if (place.postalCode && postalCodeRef.current) postalCodeRef.current.value = place.postalCode;
+          }}
+        />
+        <span className="label mt-4">Ubicación</span>
+        <p className="mb-2 text-xs text-fg-subtle">
+          Busca la dirección o haz clic en el mapa para marcar dónde está la tienda. Puedes ajustar el punto con otro clic.
+        </p>
         <div className="h-80 overflow-hidden rounded-xl border border-line">
-          <LocationPickerMap value={location} onChange={setLocation} />
+          <LocationPickerMap value={location} onChange={setLocation} focus={mapFocus} />
         </div>
         {location && (
           <p className="mt-1 text-xs text-fg-subtle">

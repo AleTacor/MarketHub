@@ -86,3 +86,12 @@ export const areaSearchSchema = z.object({
   q: z.string().trim().max(100).optional(),
 });
 export type AreaSearchInput = z.infer<typeof areaSearchSchema>;
+
+/** Address lookup for placing a shop (`GET /api/geocode?q=`). */
+export const geocodeQuerySchema = z.object({
+  q: z
+    .string({ required_error: "Escribe una dirección", invalid_type_error: "Escribe una dirección" })
+    .trim()
+    .min(3, "Escribe una dirección más completa")
+    .max(200, "La dirección no puede superar los 200 caracteres"),
+});

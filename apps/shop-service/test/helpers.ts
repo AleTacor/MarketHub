@@ -2,6 +2,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { vi, type Mock } from "vitest";
 import { AUTH_COOKIE, JWT_ISSUER, type Role, type ShopDetail } from "@markethub/shared";
 import { createApp } from "../src/app";
+import type { Geocoder } from "../src/geocoder";
 import type { Repository } from "../src/repository";
 
 type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
@@ -49,9 +50,10 @@ export async function createIssuer() {
 
 export async function setup() {
   const repo = fakeRepo();
+  const geocoder = { search: vi.fn<Geocoder["search"]>(async () => []) };
   const issuer = await createIssuer();
-  const app = createApp({ repo: repo as unknown as Repository, getKey: issuer.getKey });
-  return { repo, app, ...issuer };
+  const app = createApp({ repo: repo as unknown as Repository, getKey: issuer.getKey, geocoder });
+  return { repo, geocoder, app, ...issuer };
 }
 
 export const OWNER_ID = 7;

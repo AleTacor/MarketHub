@@ -41,6 +41,22 @@ export interface ShopListResponse {
   shops: ShopSummary[];
 }
 
+/** One match for an address typed by a shop owner. */
+export interface GeocodeResult {
+  /** Full address as returned by the geocoder, to show in the list. */
+  label: string;
+  lat: number;
+  lng: number;
+  /** The one typed in the query, else the found door's; null when unknown. */
+  postalCode: string | null;
+  /** True when the exact door was found; false means a point on the street (or town). */
+  exact: boolean;
+}
+
+export interface GeocodeResponse {
+  results: GeocodeResult[];
+}
+
 export interface ApiErrorBody {
   error: string;
 }

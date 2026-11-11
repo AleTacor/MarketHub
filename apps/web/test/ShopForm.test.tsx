@@ -1,16 +1,28 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ShopForm } from "@/components/ShopForm";
-import { server } from "./msw";
+import { recorder, server } from "./msw";
 import { renderWithClient, shopDetail, skipNativeValidation } from "./render";
 
 const PICKED = { lat: 40.4168, lng: -3.7038 };
 
 // Leaflet can't run in jsdom: the fake map "clicks" a fixed point and exposes the current value.
 vi.mock("@/components/maps", () => ({
-  LocationPickerMap: ({ value, onChange }: { value: { lat: number; lng: number } | null; onChange: (p: typeof PICKED) => void }) => (
-    <div data-testid="location-map" data-value={value ? `${value.lat},${value.lng}` : ""}>
+  LocationPickerMap: ({
+    value,
+    onChange,
+    focus,
+  }: {
+    value: { lat: number; lng: number } | null;
+    onChange: (p: typeof PICKED) => void;
+    focus?: { lat: number; lng: number } | null;
+  }) => (
+    <div
+      data-testid="location-map"
+      data-value={value ? `${value.lat},${value.lng}` : ""}
+      data-focus={focus ? `${focus.lat},${focus.lng}` : ""}
+    >
       <button type="button" onClick={() => onChange(PICKED)}>
         Marcar ubicación
       </button>
@@ -194,5 +206,124 @@ describe("ShopForm — edit", () => {
     const { user } = renderForm({ shop: existing, submitLabel: "Guardar cambios", onCancel });
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ShopForm — address search", () => {
+  const MAYOR = { label: "Calle Mayor, 1, 28013 Madrid", lat: 40.4153, lng: -3.7074, postalCode: "28013", exact: true };
+  const MAYOR_ALCALA = { label: "Calle Mayor, 1, 28801 Alcalá de Henares", lat: 40.4818, lng: -3.3644, postalCode: "28801", exact: true };
+  const PAPA_NEGRO_STREET = { label: "Avenida del Papa Negro, Madrid", lat: 40.4532, lng: -3.6312, postalCode: null, exact: false };
+  let geocodeCalls: ReturnType<typeof recorder>;
+
+  const answer = (results: unknown[]) => {
+    geocodeCalls = recorder();
+    server.use(
+      http.get("/api/geocode", async ({ request }) => {
+        await geocodeCalls.record(request);
+        return HttpResponse.json({ results });
+      }),
+    );
+  };
+  const addressInput = () => screen.getByLabelText("Dirección");
+  const findButton = () => screen.getByRole("button", { name: "Buscar dirección" });
+  const map = () => screen.getByTestId("location-map");
+
+  it("places the shop at the only match, moves the map there and fills the postal code", async () => {
+    answer([MAYOR]);
+    const { user } = renderForm();
+    await user.type(addressInput(), "Calle Mayor 1, Madrid");
+    await user.click(findButton());
+
+    await waitFor(() => expect(map()).toHaveAttribute("data-value", "40.4153,-3.7074"));
+    expect(new URL(geocodeCalls.calls[0]!.url).searchParams.get("q")).toBe("Calle Mayor 1, Madrid");
+    expect(map()).toHaveAttribute("data-focus", "40.4153,-3.7074");
+    expect(screen.getByLabelText("Código postal")).toHaveValue("28013");
+    expect(screen.getByRole("status")).toHaveTextContent("Ubicación marcada en Calle Mayor, 1, 28013 Madrid.");
+  });
+
+  it("asks to adjust the point on the map when the exact door wasn't found", async () => {
+    answer([PAPA_NEGRO_STREET]);
+    const { user } = renderForm();
+    await user.type(addressInput(), "Avenida del Papa Negro 22, Madrid");
+    await user.click(findButton());
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "No hemos encontrado el número exacto: hemos marcado Avenida del Papa Negro, Madrid. Haz clic en el mapa en el punto exacto de la tienda.",
+    );
+    expect(map()).toHaveAttribute("data-value", "40.4532,-3.6312");
+  });
+
+  it("flags approximate matches in the list", async () => {
+    answer([MAYOR, PAPA_NEGRO_STREET]);
+    const { user } = renderForm();
+    await user.type(addressInput(), "Madrid");
+    await user.click(findButton());
+
+    const list = await screen.findByRole("list", { name: "Direcciones encontradas" });
+    expect(within(list).getByRole("button", { name: /^Avenida del Papa Negro, Madrid\s*· sin número exacto$/ })).toBeInTheDocument();
+    expect(within(list).getByRole("button", { name: MAYOR.label })).toBeInTheDocument();
+  });
+
+  it("lets the owner choose when there are several matches", async () => {
+    answer([MAYOR, MAYOR_ALCALA]);
+    const { user } = renderForm();
+    await user.type(addressInput(), "Calle Mayor 1");
+    await user.click(findButton());
+
+    const list = await screen.findByRole("list", { name: "Direcciones encontradas" });
+    expect(map()).toHaveAttribute("data-value", "");
+    await user.click(within(list).getByRole("button", { name: MAYOR_ALCALA.label }));
+
+    expect(map()).toHaveAttribute("data-value", "40.4818,-3.3644");
+    expect(screen.getByLabelText("Código postal")).toHaveValue("28801");
+    expect(screen.queryByRole("list", { name: "Direcciones encontradas" })).not.toBeInTheDocument();
+  });
+
+  it("searches on Enter without submitting the shop form", async () => {
+    answer([MAYOR]);
+    const { user, onSubmit } = renderForm();
+    await user.type(addressInput(), "Calle Mayor 1{Enter}");
+
+    await waitFor(() => expect(map()).toHaveAttribute("data-value", "40.4153,-3.7074"));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("keeps the typed postal code when the match has none", async () => {
+    answer([{ ...MAYOR, postalCode: null }]);
+    const { user } = renderForm();
+    await user.type(screen.getByLabelText("Código postal"), "28001");
+    await user.type(addressInput(), "Calle Mayor 1");
+    await user.click(findButton());
+
+    await waitFor(() => expect(map()).toHaveAttribute("data-value", "40.4153,-3.7074"));
+    expect(screen.getByLabelText("Código postal")).toHaveValue("28001");
+  });
+
+  it("says so when nothing is found", async () => {
+    answer([]);
+    const { user } = renderForm();
+    await user.type(addressInput(), "Calle Inventada 99");
+    await user.click(findButton());
+
+    expect(await screen.findByText(/No hemos encontrado esa dirección/)).toBeInTheDocument();
+    expect(map()).toHaveAttribute("data-value", "");
+  });
+
+  it("shows the backend error", async () => {
+    server.use(
+      http.get("/api/geocode", () =>
+        HttpResponse.json({ error: "No se pudo buscar la dirección. Inténtalo de nuevo o marca la ubicación en el mapa" }, { status: 502 }),
+      ),
+    );
+    const { user } = renderForm();
+    await user.type(addressInput(), "Calle Mayor 1");
+    await user.click(findButton());
+
+    expect(await screen.findByText(/No se pudo buscar la dirección/)).toBeInTheDocument();
+  });
+
+  it("can't search an empty address", () => {
+    renderForm();
+    expect(findButton()).toBeDisabled();
   });
 });
