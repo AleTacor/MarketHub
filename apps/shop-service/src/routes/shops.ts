@@ -1,9 +1,9 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { areaSearchSchema, SEARCH_PAGE_SIZE, shopInputSchema, shopQuerySchema, type GeoPolygon, type ShopListResponse, type ShopSearchPage } from "@markethub/shared";
+import { areaSearchSchema, SEARCH_PAGE_SIZE, shopInputSchema, shopQuerySchema, type ShopListResponse, type ShopType, type ShopSearchPage } from "@markethub/shared";
 import type { Auth } from "../auth";
 import { HttpError } from "../errors";
-import type { Repository } from "../repository";
+import type { Repository, SearchFilters } from "../repository";
 import { deleteImage, imageUpload, saveImage } from "../storage";
 
 export const idParam = z.coerce.number({ invalid_type_error: "Identificador no válido" }).int().positive("Identificador no válido");
@@ -16,15 +16,23 @@ export async function assertShopOwner(repo: Repository, req: Request, shopId: nu
   return shop;
 }
 
+/** The catch-all type, listed last instead of in alphabetical order. */
+export const OTHER_SHOP_TYPE = "Otros";
+const spanish = new Intl.Collator("es", { sensitivity: "base" });
+
+/** By name in Spanish order (accents ignored, "ñ" after "n"), with "Otros" at the end. */
+export const sortShopTypes = (types: ShopType[]) =>
+  [...types].sort((a, b) => Number(a.name === OTHER_SHOP_TYPE) - Number(b.name === OTHER_SHOP_TYPE) || spanish.compare(a.name, b.name));
+
 export function shopsRouter(repo: Repository, { requireBusiness }: Auth) {
   const r = Router();
 
   r.get("/shop-types", async (_req, res) => {
-    res.json({ shopTypes: await repo.listShopTypes() });
+    res.json({ shopTypes: sortShopTypes(await repo.listShopTypes()) });
   });
 
   /** Runs one page of a search and says where the next one starts. */
-  const searchPage = async (filters: { postalCode?: string; q?: string; area?: GeoPolygon }, offset: number) => {
+  const searchPage = async (filters: SearchFilters, offset: number) => {
     const { shops, total } = await repo.searchShopsPage(filters, { offset, limit: SEARCH_PAGE_SIZE });
     const next = offset + shops.length;
     const body: ShopSearchPage = { shops, total, nextOffset: shops.length > 0 && next < total ? next : null };
@@ -45,8 +53,8 @@ export function shopsRouter(repo: Repository, { requireBusiness }: Auth) {
       // Polygon errors are too technical to show; the rest (offset) have Spanish messages.
       throw new HttpError(400, issue.path[0] === "area" ? "La zona seleccionada en el mapa no es válida" : issue.message);
     }
-    const { area, q, offset } = parsed.data;
-    res.json(await searchPage({ area, q }, offset));
+    const { offset, ...filters } = parsed.data;
+    res.json(await searchPage(filters, offset));
   });
 
   r.get("/shops/mine", ...requireBusiness, async (req, res) => {

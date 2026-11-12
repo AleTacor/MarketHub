@@ -6,25 +6,28 @@ import { postalCodeSchema, type GeoPolygon, type ShopSearchPage } from "@marketh
 import { AreaSelectMap } from "@/components/maps";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
+import { useShopTypes } from "@/lib/hooks";
 import { loadSavedSearch, saveSearch } from "@/lib/savedSearch";
 import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 
-type Search =
-  | { kind: "area"; area: GeoPolygon; q: string }
-  | { kind: "postalCode"; postalCode: string; q: string }
-  | { kind: "name"; q: string };
+/** Filters that narrow any search: shop name and type (null: every type). */
+type Filters = { q: string; shopTypeId: number | null };
+
+type Search = Filters &
+  ({ kind: "area"; area: GeoPolygon } | { kind: "postalCode"; postalCode: string } | { kind: "name" });
 
 /** One page (SEARCH_PAGE_SIZE shops) of a search, starting at `offset`. */
 function fetchShops(search: Search, offset: number): Promise<ShopSearchPage> {
   if (search.kind === "area") {
     return api<ShopSearchPage>("/api/shops/search-area", {
       method: "POST",
-      json: { area: search.area, q: search.q || undefined, offset: offset || undefined },
+      json: { area: search.area, q: search.q || undefined, shopTypeId: search.shopTypeId ?? undefined, offset: offset || undefined },
     });
   }
   const params = new URLSearchParams();
   if (search.kind === "postalCode") params.set("postalCode", search.postalCode);
   if (search.q) params.set("q", search.q);
+  if (search.shopTypeId) params.set("shopTypeId", String(search.shopTypeId));
   if (offset) params.set("offset", String(offset));
   return api<ShopSearchPage>(`/api/shops?${params}`);
 }
@@ -33,6 +36,8 @@ function fetchShops(search: Search, offset: number): Promise<ShopSearchPage> {
 export default function SearchPage() {
   const [postalCode, setPostalCode] = useState("");
   const [name, setName] = useState("");
+  const [shopTypeId, setShopTypeId] = useState<number | null>(null);
+  const { data: shopTypes = [] } = useShopTypes();
   const [search, setSearch] = useState<Search | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [clearKey, setClearKey] = useState(0);
@@ -44,10 +49,10 @@ export default function SearchPage() {
     const saved = loadSavedSearch();
     if (saved?.kind === "area") {
       setRestoredArea(saved.area);
-      setSearch({ kind: "area", area: saved.area, q: "" });
+      setSearch({ kind: "area", area: saved.area, q: "", shopTypeId: null });
     } else if (saved?.kind === "postalCode") {
       setPostalCode(saved.postalCode);
-      setSearch({ kind: "postalCode", postalCode: saved.postalCode, q: "" });
+      setSearch({ kind: "postalCode", postalCode: saved.postalCode, q: "", shopTypeId: null });
     }
   }, []);
 
@@ -77,18 +82,19 @@ export default function SearchPage() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
-    const q = name.trim();
+    const filters: Filters = { q: name.trim(), shopTypeId };
+    const { q } = filters;
     if (postalCode.trim()) {
       const cp = postalCodeSchema.safeParse(postalCode);
       if (!cp.success) return setFormError(cp.error.issues[0]!.message);
       setClearKey((k) => k + 1); // a postal code search replaces the drawn area
       saveSearch({ kind: "postalCode", postalCode: cp.data });
-      return setSearch({ kind: "postalCode", postalCode: cp.data, q });
+      return setSearch({ kind: "postalCode", postalCode: cp.data, ...filters });
     }
-    if (search?.kind === "area") return setSearch({ ...search, q });
+    if (search?.kind === "area") return setSearch({ ...search, ...filters });
     if (q) {
       saveSearch(null); // a name-only search isn't remembered, and replaces the saved one
-      return setSearch({ kind: "name", q });
+      return setSearch({ kind: "name", ...filters });
     }
     setFormError("Introduce un código postal, un nombre o dibuja una zona en el mapa");
   }
@@ -99,13 +105,20 @@ export default function SearchPage() {
       saveSearch(area && { kind: "area", area });
       if (area) {
         setPostalCode("");
-        setSearch({ kind: "area", area, q: name.trim() });
+        setSearch({ kind: "area", area, q: name.trim(), shopTypeId });
       } else {
         setSearch((s) => (s?.kind === "area" ? null : s));
       }
     },
-    [name],
+    [name, shopTypeId],
   );
+
+  /** A select has no "submit" moment: the type applies to the current search at once. */
+  function handleTypeChange(value: string) {
+    const id = value ? Number(value) : null;
+    setShopTypeId(id);
+    setSearch((s) => (s ? { ...s, shopTypeId: id } : s));
+  }
 
   return (
     <div className="space-y-6">
@@ -132,6 +145,17 @@ export default function SearchPage() {
         <div className="flex-1">
           <label className="label" htmlFor="q">Nombre de la tienda</label>
           <input id="q" className="input" placeholder="Buscar por nombre…" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="sm:w-52">
+          <label className="label" htmlFor="type">Tipo de tienda</label>
+          <select id="type" className="input" value={shopTypeId ?? ""} onChange={(e) => handleTypeChange(e.target.value)}>
+            <option value="">Todos los tipos</option>
+            {shopTypes.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
         <button className="btn btn-primary">Buscar</button>
       </form>

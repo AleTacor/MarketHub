@@ -21,6 +21,23 @@ describe("GET /api/shop-types", () => {
     const res = await request(ctx.app).get("/api/shop-types").expect(200);
     expect(res.body).toEqual({ shopTypes: [{ id: 1, name: "Panadería y pastelería" }] });
   });
+
+  it("sorts the types by name in Spanish, with Otros last", async () => {
+    const names = ["Otros", "Ropa", "Electrónica", "Mascotas", "Floristería", "alimentación", "Ñoquis", "Nutrición", "Ferretería"];
+    ctx.repo.listShopTypes.mockResolvedValue(names.map((name, i) => ({ id: i + 1, name })));
+    const res = await request(ctx.app).get("/api/shop-types").expect(200);
+    expect(res.body.shopTypes.map((t: { name: string }) => t.name)).toEqual([
+      "alimentación",
+      "Electrónica",
+      "Ferretería",
+      "Floristería",
+      "Mascotas",
+      "Nutrición",
+      "Ñoquis",
+      "Ropa",
+      "Otros",
+    ]);
+  });
 });
 
 const shops = (n: number, from = 1) => Array.from({ length: n }, (_, i) => sampleShop({ id: from + i }));
@@ -51,6 +68,22 @@ describe("GET /api/shops", () => {
     ctx.repo.searchShopsPage.mockResolvedValue(page);
     const res = await request(ctx.app).get("/api/shops").query({ q: "luna", offset }).expect(200);
     expect(res.body.nextOffset).toBeNull();
+  });
+
+  it("narrows the search to a shop type", async () => {
+    await request(ctx.app).get("/api/shops").query({ postalCode: "28001", shopTypeId: "3" }).expect(200);
+    expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ postalCode: "28001", shopTypeId: 3 }, { offset: 0, limit: 10 });
+  });
+
+  it.each(["abc", "0", "1.5"])("rejects the shop type %s", async (shopTypeId) => {
+    const res = await request(ctx.app).get("/api/shops").query({ q: "luna", shopTypeId }).expect(400);
+    expect(res.body.error).toBe("Tipo de tienda no válido");
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
+  });
+
+  it("doesn't search by type alone", async () => {
+    await request(ctx.app).get("/api/shops").query({ shopTypeId: "3" }).expect(400, { error: "Indica un código postal o un nombre" });
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 
   it("requires a postal code or a name", async () => {
@@ -89,6 +122,16 @@ describe("POST /api/shops/search-area", () => {
     const res = await request(ctx.app).post("/api/shops/search-area").send({ area, offset: 10 }).expect(200);
     expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ area, q: undefined }, { offset: 10, limit: 10 });
     expect(res.body.nextOffset).toBeNull();
+  });
+
+  it("narrows the area search to a shop type", async () => {
+    await request(ctx.app).post("/api/shops/search-area").send({ area, shopTypeId: 2 }).expect(200);
+    expect(ctx.repo.searchShopsPage).toHaveBeenCalledWith({ area, shopTypeId: 2 }, { offset: 0, limit: 10 });
+  });
+
+  it("explains a bad shop type as such", async () => {
+    await request(ctx.app).post("/api/shops/search-area").send({ area, shopTypeId: "x" }).expect(400, { error: "Tipo de tienda no válido" });
+    expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 
   it("explains a bad offset as such, not as a bad area", async () => {

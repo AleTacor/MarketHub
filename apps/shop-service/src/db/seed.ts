@@ -11,6 +11,7 @@ export const SHOP_TYPES = [
   "Carnicería",
   "Pescadería",
   "Frutería",
+  "Restaurante",
   "Farmacia",
   "Droguería y perfumería",
   "Ropa",

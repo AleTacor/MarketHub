@@ -68,6 +68,16 @@ describe("ShopForm — create", () => {
     expect(screen.getByRole("option", { name: "Frutería" })).toBeInTheDocument();
   });
 
+  it("lists the types in the API's order after the placeholder, without Todos los tipos", async () => {
+    renderForm();
+    await screen.findByRole("option", { name: "Frutería" });
+    expect(within(screen.getByLabelText("Tipo de tienda")).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Selecciona…",
+      "Panadería y pastelería",
+      "Frutería",
+    ]);
+  });
+
   it("sends every field, the location and the image as FormData", async () => {
     const { user, onSubmit } = renderForm();
     await fillFields(user);

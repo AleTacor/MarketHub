@@ -148,10 +148,18 @@ const offsetField = z.coerce
   .max(10_000, "Página no válida")
   .default(0);
 
+/** Optional search filter: only shops of this type. */
+const shopTypeFilter = z.coerce
+  .number({ invalid_type_error: "Tipo de tienda no válido" })
+  .int("Tipo de tienda no válido")
+  .positive("Tipo de tienda no válido")
+  .optional();
+
 export const shopQuerySchema = z
   .object({
     postalCode: postalCodeSchema.optional(),
     q: z.string().trim().max(100).optional(),
+    shopTypeId: shopTypeFilter,
     offset: offsetField,
   })
   .refine((v) => v.postalCode || v.q, { message: "Indica un código postal o un nombre" });
@@ -168,6 +176,7 @@ export type GeoPolygon = z.infer<typeof geoPolygonSchema>;
 export const areaSearchSchema = z.object({
   area: geoPolygonSchema,
   q: z.string().trim().max(100).optional(),
+  shopTypeId: shopTypeFilter,
   offset: offsetField,
 });
 export type AreaSearchInput = z.infer<typeof areaSearchSchema>;

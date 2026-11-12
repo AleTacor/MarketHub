@@ -16,6 +16,14 @@ interface ShopRow {
   lng: number;
 }
 
+/** Filters of a public search. `shopTypeId` narrows any of them to one type. */
+export interface SearchFilters {
+  postalCode?: string;
+  q?: string;
+  area?: GeoPolygon;
+  shopTypeId?: number;
+}
+
 const toShop = (r: ShopRow): ShopSummary => ({
   id: r.id,
   ownerId: r.ownerId,
@@ -78,7 +86,7 @@ export function createRepository(db: Knex) {
     },
 
     /** One page of a search. Ordered by name, then id, so pages never overlap or skip. */
-    async searchShopsPage(filters: { postalCode?: string; q?: string; area?: GeoPolygon }, { offset, limit }: { offset: number; limit: number }) {
+    async searchShopsPage(filters: SearchFilters, { offset, limit }: { offset: number; limit: number }) {
       const query = shopQuery()
         .select(db.raw("count(*) OVER() AS total"))
         .orderBy([{ column: "s.name" }, { column: "s.id" }])
@@ -86,6 +94,7 @@ export function createRepository(db: Knex) {
         .limit(limit);
       if (filters.postalCode) query.where("s.postal_code", filters.postalCode);
       if (filters.q) query.whereRaw("s.name ILIKE ?", [`%${escapeLike(filters.q)}%`]);
+      if (filters.shopTypeId) query.where("s.shop_type_id", filters.shopTypeId);
       if (filters.area) {
         query.whereRaw("ST_Intersects(s.location, ST_SetSRID(ST_GeomFromGeoJSON(?), 4326)::geography)", [
           JSON.stringify(filters.area),

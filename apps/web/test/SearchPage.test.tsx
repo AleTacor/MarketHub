@@ -55,6 +55,9 @@ beforeEach(() => {
       await areaCalls.record(request);
       return HttpResponse.json(page([luna, sol]));
     }),
+    http.get("/api/shop-types", () =>
+      HttpResponse.json({ shopTypes: [{ id: 1, name: "Panadería y pastelería" }, { id: 2, name: "Frutería" }] }),
+    ),
   );
 });
 
@@ -228,6 +231,84 @@ describe("search page", () => {
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
     expect(await screen.findByText("Error interno del servidor")).toBeInTheDocument();
+  });
+
+  describe("type filter", () => {
+    const typeSelect = () => screen.getByLabelText("Tipo de tienda");
+    const chooseType = async (user: ReturnType<typeof renderWithClient>["user"], name: string) =>
+      user.selectOptions(typeSelect(), await screen.findByRole("option", { name }));
+
+    it("offers every type from the API, and all of them by default", async () => {
+      renderWithClient(<SearchPage />);
+      expect(await screen.findByRole("option", { name: "Frutería" })).toBeInTheDocument();
+      expect(typeSelect()).toHaveValue("");
+      // "Todos los tipos" first, then the types in the API's order (sorted there).
+      expect(within(typeSelect()).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "Todos los tipos",
+        "Panadería y pastelería",
+        "Frutería",
+      ]);
+    });
+
+    it("narrows a postal code search to the chosen type", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await user.type(cpInput(), "28001");
+      await chooseType(user, "Frutería");
+      expect(listCalls.calls).toHaveLength(0); // not a search on its own
+      await user.click(searchButton());
+
+      await waitFor(() => expect(listCalls.calls).toHaveLength(1));
+      expect(listCalls.calls[0]!.url.searchParams.get("shopTypeId")).toBe("2");
+      expect(listCalls.calls[0]!.url.searchParams.get("postalCode")).toBe("28001");
+    });
+
+    it("re-runs the current search at once when the type changes", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(1));
+      expect(areaCalls.calls[0]!.body).toEqual({ area: AREA });
+
+      await chooseType(user, "Panadería y pastelería");
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(2));
+      expect(areaCalls.calls[1]!.body).toEqual({ area: AREA, shopTypeId: 1 });
+
+    });
+
+    it("stops filtering with Todos los tipos", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await chooseType(user, "Frutería");
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(1));
+
+      await chooseType(user, "Todos los tipos");
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(2));
+      expect(areaCalls.calls[1]!.body).toEqual({ area: AREA });
+    });
+
+    it("applies to an area drawn after choosing it", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await chooseType(user, "Frutería");
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(1));
+      expect(areaCalls.calls[0]!.body).toEqual({ area: AREA, shopTypeId: 2 });
+    });
+
+    it("is not enough to search", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await chooseType(user, "Frutería");
+      await user.click(searchButton());
+      expect(screen.getByText("Introduce un código postal, un nombre o dibuja una zona en el mapa")).toBeInTheDocument();
+    });
+
+    it("isn't saved with the search", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await chooseType(user, "Frutería");
+      await user.type(cpInput(), "28001");
+      await user.click(searchButton());
+      await waitFor(() => expect(listCalls.calls).toHaveLength(1));
+      expect(JSON.parse(localStorage.getItem(SAVED_SEARCH_STORAGE_KEY)!)).toEqual({ kind: "postalCode", postalCode: "28001" });
+    });
   });
 
   describe("saved search", () => {
