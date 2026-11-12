@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { REVIEW_PLATFORMS } from "@markethub/shared";
 import { useParams } from "next/navigation";
 import { ExpandableText } from "@/components/ExpandableText";
 import { ShopLocationMap } from "@/components/maps";
 import { errorMessage } from "@/lib/api";
+import { formatPhone, phoneHref } from "@/lib/phone";
 import { PRODUCT_IMAGE, SHOP_IMAGE } from "@/lib/images";
 import { useMe, useShop } from "@/lib/hooks";
 
@@ -16,6 +18,7 @@ export default function ShopPage() {
 
   if (isLoading) return <p className="text-fg-subtle">Cargando tienda…</p>;
   if (error || !shop) return <p className="error-box">{error ? errorMessage(error) : "Tienda no encontrada"}</p>;
+  const reviewSites = REVIEW_PLATFORMS.filter((p) => shop.reviewLinks[p.id]);
 
   return (
     <div className="space-y-6">
@@ -31,6 +34,41 @@ export default function ShopPage() {
             <h1 className="break-anywhere text-2xl font-semibold">{shop.name}</h1>
             <p className="text-sm text-fg-subtle">Código postal {shop.postalCode}</p>
             {shop.description && <p className="break-anywhere mt-3 whitespace-pre-line text-fg-muted">{shop.description}</p>}
+            {shop.phones.length > 0 && (
+              <div className="mt-4">
+                <h2 className="text-sm font-medium text-fg">Teléfonos</h2>
+                <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                  {shop.phones.map((p) => (
+                    <li key={p}>
+                      <a href={phoneHref(p)} className="text-accent hover:underline" aria-label={`Llamar al ${formatPhone(p)}`}>
+                        {formatPhone(p)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {reviewSites.length > 0 && (
+              <div className="mt-4">
+                <h2 className="text-sm font-medium text-fg">Opiniones de clientes</h2>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {reviewSites.map((p) => (
+                    <li key={p.id}>
+                      {/* External, owner-provided: no referrer or opener, and no endorsement for search engines. */}
+                      <a
+                        href={shop.reviewLinks[p.id]}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="btn btn-sm"
+                        aria-label={`Ver opiniones en ${p.label} (se abre en una pestaña nueva)`}
+                      >
+                        {p.label} ↗
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {me && shop.ownerId === me.id && (
               <Link href={`/mis-tiendas/${shop.id}`} className="btn btn-sm mt-4">
                 Gestionar esta tienda

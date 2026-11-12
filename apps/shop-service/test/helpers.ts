@@ -69,6 +69,8 @@ export const sampleShop = (overrides: Partial<ShopDetail> = {}): ShopDetail => (
   shopType: { id: 1, name: "Panadería y pastelería" },
   lat: 40.42,
   lng: -3.7,
+  reviewLinks: {},
+  phones: [],
   products: [],
   ...overrides,
 });

@@ -1,4 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
+  // Runs in the browser and in Node. DOM provides the type of globals both have (URL).
+  "compilerOptions": { "lib": ["ES2022", "DOM"] },
   "include": ["src"]
 }

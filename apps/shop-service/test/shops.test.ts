@@ -137,7 +137,7 @@ describe("POST /api/shops", () => {
 
     const [ownerId, input, imageUrl] = ctx.repo.createShop.mock.calls[0]!;
     expect(ownerId).toBe(OWNER_ID);
-    expect(input).toEqual({ ...validShopFields, shopTypeId: 1, lat: 40.42, lng: -3.7 });
+    expect(input).toEqual({ ...validShopFields, shopTypeId: 1, lat: 40.42, lng: -3.7, reviewLinks: {}, phones: [] });
     expect(imageUrl).toMatch(/^\/uploads\/[0-9a-f-]{36}\.png$/);
     expect(await readFile(path.join(UPLOAD_DIR, path.basename(imageUrl)))).toEqual(PNG);
   });
@@ -176,6 +176,58 @@ describe("POST /api/shops", () => {
     expect(res.body.error).toBe("Ubicación fuera de España");
   });
 
+  it("saves the review links sent as reviewLinks[<platform>] fields", async () => {
+    ctx.repo.getShop.mockResolvedValue(sampleShop());
+    await create()
+      .field("reviewLinks[tripadvisor]", "https://www.tripadvisor.es/Restaurant_Review-x")
+      .field("reviewLinks[google]", "")
+      .attach("image", PNG, { filename: "a.png", contentType: "image/png" })
+      .expect(201);
+
+    expect(ctx.repo.createShop.mock.calls[0]![1].reviewLinks).toEqual({ tripadvisor: "https://www.tripadvisor.es/Restaurant_Review-x" });
+  });
+
+  it("rejects a review link to another site without storing anything", async () => {
+    const before = await readdir(UPLOAD_DIR);
+    const res = await create()
+      .field("reviewLinks[tripadvisor]", "https://example.com/opiniones")
+      .attach("image", PNG, { filename: "a.png", contentType: "image/png" })
+      .expect(400);
+
+    expect(res.body.error).toBe("El enlace de Tripadvisor debe ser una dirección de tripadvisor.es, tripadvisor.com");
+    expect(ctx.repo.createShop).not.toHaveBeenCalled();
+    expect(await readdir(UPLOAD_DIR)).toEqual(before);
+  });
+
+  it("saves the phones sent as phones[<i>] fields, normalized", async () => {
+    ctx.repo.getShop.mockResolvedValue(sampleShop());
+    await create()
+      .field("phones[0]", "+34 612 345 678")
+      .field("phones[1]", "")
+      .field("phones[2]", "91 123 45 67")
+      .attach("image", PNG, { filename: "a.png", contentType: "image/png" })
+      .expect(201);
+
+    expect(ctx.repo.createShop.mock.calls[0]![1].phones).toEqual(["612345678", "911234567"]);
+  });
+
+  it("rejects an invalid phone", async () => {
+    const res = await create()
+      .field("phones[0]", "12345")
+      .attach("image", PNG, { filename: "a.png", contentType: "image/png" })
+      .expect(400);
+    expect(res.body.error).toBe("Introduce un teléfono español válido (9 dígitos, p. ej. 912 345 678)");
+    expect(ctx.repo.createShop).not.toHaveBeenCalled();
+  });
+
+  it("rejects more than 3 phones", async () => {
+    const req = create();
+    for (let i = 0; i < 4; i++) req.field(`phones[${i}]`, `61234567${i}`);
+    const res = await req.attach("image", PNG, { filename: "a.png", contentType: "image/png" }).expect(400);
+    expect(res.body.error).toBe("Puedes añadir hasta 3 teléfonos");
+    expect(ctx.repo.createShop).not.toHaveBeenCalled();
+  });
+
   it("is only for empresarios", async () => {
     await create(await ctx.cookie(1, "cliente")).expect(403);
     expect(ctx.repo.createShop).not.toHaveBeenCalled();
@@ -204,6 +256,28 @@ describe("PUT /api/shops/:id", () => {
     const files = await readdir(UPLOAD_DIR);
     expect(files).not.toContain("old.png");
     expect(files).toContain(path.basename(newUrl));
+  });
+
+  it("replaces the review links, removing those sent empty", async () => {
+    ctx.repo.getShopOwner.mockResolvedValue({ ownerId: OWNER_ID, imageUrl: "/uploads/old.png" });
+    ctx.repo.getShop.mockResolvedValue(sampleShop());
+    await update().field("reviewLinks[google]", "https://maps.app.goo.gl/AbC").field("reviewLinks[facebook]", "").expect(200);
+
+    expect(ctx.repo.updateShop.mock.calls[0]![1].reviewLinks).toEqual({ google: "https://maps.app.goo.gl/AbC" });
+  });
+
+  it("replaces the phones", async () => {
+    ctx.repo.getShopOwner.mockResolvedValue({ ownerId: OWNER_ID, imageUrl: "/uploads/old.png" });
+    ctx.repo.getShop.mockResolvedValue(sampleShop());
+    await update().field("phones[0]", "").field("phones[1]", "912345678").expect(200);
+    expect(ctx.repo.updateShop.mock.calls[0]![1].phones).toEqual(["912345678"]);
+  });
+
+  it("rejects an invalid review link", async () => {
+    ctx.repo.getShopOwner.mockResolvedValue({ ownerId: OWNER_ID, imageUrl: "/uploads/old.png" });
+    const res = await update().field("reviewLinks[facebook]", "https://www.instagram.com/luna").expect(400);
+    expect(res.body.error).toBe("El enlace de Facebook debe ser una dirección de facebook.com, fb.com, fb.me");
+    expect(ctx.repo.updateShop).not.toHaveBeenCalled();
   });
 
   it("returns 403 for another empresario's shop", async () => {

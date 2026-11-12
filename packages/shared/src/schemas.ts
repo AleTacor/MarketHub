@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, ROLES } from "./constants";
+import { DESCRIPTION_MAX_LENGTH, MAX_PHONES, NAME_MAX_LENGTH, REVIEW_PLATFORMS, REVIEW_URL_MAX_LENGTH, ROLES, type ReviewPlatform } from "./constants";
 
 /** Spanish postal code: 5 digits, province prefix 01–52. */
 export const postalCodeSchema = z
@@ -40,6 +40,72 @@ const descriptionField = z
   .max(DESCRIPTION_MAX_LENGTH, `La descripción no puede superar los ${DESCRIPTION_MAX_LENGTH} caracteres`)
   .default("");
 
+type Platform = (typeof REVIEW_PLATFORMS)[number];
+
+const matchesHost = (host: string, domains: readonly string[]) => domains.some((d) => host === d || host.endsWith(`.${d}`));
+
+/**
+ * Optional link to the shop's page on one review site. Empty means no link. A
+ * missing scheme is assumed to be https ("www.tripadvisor.es/..." as pasted).
+ */
+const reviewUrlField = (p: Platform) =>
+  z.preprocess(
+    (v) => {
+      if (typeof v !== "string") return v;
+      const t = v.trim();
+      if (!t) return undefined;
+      return /^[a-z][a-z\d+.-]*:/i.test(t) ? t : `https://${t}`;
+    },
+    z
+      .string()
+      .max(REVIEW_URL_MAX_LENGTH, `El enlace de ${p.label} no puede superar los ${REVIEW_URL_MAX_LENGTH} caracteres`)
+      .refine(
+        (v) => {
+          try {
+            const url = new URL(v);
+            return (url.protocol === "https:" || url.protocol === "http:") && matchesHost(url.hostname.toLowerCase(), p.hosts);
+          } catch {
+            return false;
+          }
+        },
+        { message: `El enlace de ${p.label} debe ser una dirección de ${p.hosts.join(", ")}` },
+      )
+      .optional(),
+  );
+
+/** `{ google?: url, tripadvisor?: url, ... }`. Multipart fields `reviewLinks[<platform>]`. */
+export const reviewLinksSchema = z
+  .object(
+    Object.fromEntries(REVIEW_PLATFORMS.map((p) => [p.id, reviewUrlField(p)])) as Record<ReviewPlatform, ReturnType<typeof reviewUrlField>>,
+  )
+  .default({});
+export type ReviewLinks = Partial<Record<ReviewPlatform, string>>;
+
+/**
+ * Spanish phone number (landline, mobile, 800/900): 9 digits starting with 6–9,
+ * optionally after +34 / 0034. Spaces, dots, dashes and parentheses are allowed
+ * and stripped, so the result is the bare 9 digits.
+ */
+export const phoneSchema = z
+  .string()
+  .transform((v) => v.replace(/[\s.\-()]/g, "").replace(/^(\+|00)34(?=\d{9}$)/, ""))
+  .pipe(z.string().regex(/^[6-9]\d{8}$/, "Introduce un teléfono español válido (9 dígitos, p. ej. 912 345 678)"));
+
+/**
+ * Up to MAX_PHONES numbers. Multipart fields `phones[0]`, `phones[1]`, ... (multer
+ * nests them into an array); empty fields are dropped and repeated numbers kept once.
+ */
+export const phonesSchema = z
+  .preprocess(
+    (v) => {
+      if (v === undefined || v === null) return [];
+      const list = Array.isArray(v) ? v : typeof v === "object" ? Object.values(v) : [v];
+      return list.filter((p) => !(typeof p === "string" && p.trim() === ""));
+    },
+    z.array(phoneSchema).max(MAX_PHONES, `Puedes añadir hasta ${MAX_PHONES} teléfonos`),
+  )
+  .transform((phones) => [...new Set(phones)]);
+
 export const shopInputSchema = z.object({
   name: z.string().trim().min(2, "El nombre es obligatorio").max(NAME_MAX_LENGTH, nameMax),
   description: descriptionField,
@@ -48,6 +114,8 @@ export const shopInputSchema = z.object({
   // Rough bounding box of Spain, Canary Islands included.
   lat: z.coerce.number().min(27, "Ubicación fuera de España").max(44, "Ubicación fuera de España"),
   lng: z.coerce.number().min(-19, "Ubicación fuera de España").max(5, "Ubicación fuera de España"),
+  reviewLinks: reviewLinksSchema,
+  phones: phonesSchema,
 });
 export type ShopInput = z.infer<typeof shopInputSchema>;
 

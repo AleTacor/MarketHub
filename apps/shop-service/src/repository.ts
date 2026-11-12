@@ -1,5 +1,5 @@
 import type { Knex } from "knex";
-import type { GeoPolygon, Product, ProductInput, ShopDetail, ShopInput, ShopSummary, ShopType } from "@markethub/shared";
+import type { GeoPolygon, Product, ProductInput, ReviewLinks, ShopDetail, ShopInput, ShopSummary, ShopType } from "@markethub/shared";
 
 const MAX_RESULTS = 200;
 
@@ -39,6 +39,8 @@ const PRODUCT_COLUMNS: string[] = [
 
 /** Escapes LIKE wildcards so user input matches literally. */
 export const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&");
+/** jsonb value, without the platforms left empty (JSON.stringify drops undefined). */
+const reviewLinksJson = (links: ReviewLinks) => JSON.stringify(links);
 const point = (db: Knex, lat: number, lng: number) =>
   db.raw("ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography", [lng, lat]);
 
@@ -95,10 +97,12 @@ export function createRepository(db: Knex) {
     },
 
     async getShop(id: number): Promise<ShopDetail | null> {
-      const row = await shopQuery().where("s.id", id).first();
+      const row = (await shopQuery().select("s.review_links as reviewLinks", "s.phones").where("s.id", id).first()) as
+        | (ShopRow & { reviewLinks: ReviewLinks; phones: string[] })
+        | undefined;
       if (!row) return null;
       const products = await db("products").select<Product[]>(PRODUCT_COLUMNS).where("shop_id", id).orderBy("name");
-      return { ...toShop(row), products };
+      return { ...toShop(row), reviewLinks: row.reviewLinks, phones: row.phones, products };
     },
 
     getShopOwner: (id: number) =>
@@ -114,6 +118,9 @@ export function createRepository(db: Knex) {
           shop_type_id: input.shopTypeId,
           image_url: imageUrl,
           location: point(db, input.lat, input.lng),
+          review_links: reviewLinksJson(input.reviewLinks),
+          // Stringified: pg would send a JS array as a Postgres array, not JSON.
+          phones: JSON.stringify(input.phones),
         })
         .returning<{ id: number }[]>("id");
       return row!.id;
@@ -128,6 +135,9 @@ export function createRepository(db: Knex) {
           postal_code: input.postalCode,
           shop_type_id: input.shopTypeId,
           location: point(db, input.lat, input.lng),
+          review_links: reviewLinksJson(input.reviewLinks),
+          // Stringified: pg would send a JS array as a Postgres array, not JSON.
+          phones: JSON.stringify(input.phones),
           ...(imageUrl ? { image_url: imageUrl } : {}),
           updated_at: db.fn.now(),
         });

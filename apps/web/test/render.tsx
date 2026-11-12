@@ -29,7 +29,7 @@ export const shop = (overrides: Partial<ShopSummary> = {}): ShopSummary => ({
   ...overrides,
 });
 
-export const shopDetail = (overrides: Partial<ShopDetail> = {}): ShopDetail => ({ ...shop(), products: [], ...overrides });
+export const shopDetail = (overrides: Partial<ShopDetail> = {}): ShopDetail => ({ ...shop(), reviewLinks: {}, phones: [], products: [], ...overrides });
 
 /**
  * jsdom's `required` check ignores files added with user.upload(), so it would block

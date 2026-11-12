@@ -76,7 +76,7 @@ describe("ShopForm — create", () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     const data = sent(onSubmit);
-    expect(Object.fromEntries([...data].filter(([k]) => k !== "image"))).toEqual({
+    expect(Object.fromEntries([...data].filter(([k]) => k !== "image" && !k.startsWith("reviewLinks") && !k.startsWith("phones")))).toEqual({
       name: "Panadería Luna",
       description: "Pan de masa madre",
       postalCode: "28001",
@@ -175,6 +175,67 @@ describe("ShopForm — create", () => {
     await waitFor(() => expect(submit()).toBeEnabled());
   });
 
+  it("sends the review links, one field per platform", async () => {
+    const { user, onSubmit } = renderForm();
+    await fillFields(user);
+    await user.type(screen.getByLabelText("Tripadvisor"), "https://www.tripadvisor.es/Restaurant_Review-x");
+    await user.click(screen.getByRole("button", { name: "Marcar ubicación" }));
+    await user.click(submit());
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const data = sent(onSubmit);
+    expect(data.get("reviewLinks[tripadvisor]")).toBe("https://www.tripadvisor.es/Restaurant_Review-x");
+    expect(data.get("reviewLinks[google]")).toBe("");
+  });
+
+  it("sends up to three phones", async () => {
+    const { user, onSubmit } = renderForm();
+    await fillFields(user);
+    await user.type(screen.getByLabelText("Teléfono 1"), "612 345 678");
+    await user.type(screen.getByLabelText("Teléfono 3"), "91 123 45 67");
+    await user.click(screen.getByRole("button", { name: "Marcar ubicación" }));
+    await user.click(submit());
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const data = sent(onSubmit);
+    expect([0, 1, 2].map((i) => data.get(`phones[${i}]`))).toEqual(["612 345 678", "", "91 123 45 67"]);
+    expect(screen.queryByLabelText("Teléfono 4")).not.toBeInTheDocument();
+  });
+
+  it("rejects an invalid phone before sending", async () => {
+    const { user, onSubmit } = renderForm();
+    await fillFields(user);
+    await user.type(screen.getByLabelText("Teléfono 2"), "1234");
+    await user.click(screen.getByRole("button", { name: "Marcar ubicación" }));
+    await user.click(submit());
+
+    expect(screen.getByText("Introduce un teléfono español válido (9 dígitos, p. ej. 912 345 678)")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("offers only review sites used in Spain", () => {
+    renderForm();
+    const group = screen.getByRole("group", { name: "Opiniones de clientes (opcional)" });
+    expect(within(group).getAllByRole("textbox").map((i) => i.getAttribute("id"))).toEqual([
+      "review-google",
+      "review-tripadvisor",
+      "review-thefork",
+      "review-trustpilot",
+      "review-facebook",
+    ]);
+  });
+
+  it("rejects a review link to another site before sending", async () => {
+    const { user, onSubmit } = renderForm();
+    await fillFields(user);
+    await user.type(screen.getByLabelText("Google Maps"), "https://example.com/opiniones");
+    await user.click(screen.getByRole("button", { name: "Marcar ubicación" }));
+    await user.click(submit());
+
+    expect(screen.getByText("El enlace de Google Maps debe ser una dirección de google.com, google.es, goo.gl, g.page")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("has no cancel button unless onCancel is given", () => {
     renderForm();
     expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
@@ -182,7 +243,17 @@ describe("ShopForm — create", () => {
 });
 
 describe("ShopForm — edit", () => {
-  const existing = shopDetail({ name: "Frutería Sol", description: "Fruta de temporada", postalCode: "28013", shopType: { id: 2, name: "Frutería" }, lat: 40.41, lng: -3.71, imageUrl: "/uploads/sol.png" });
+  const existing = shopDetail({
+    name: "Frutería Sol",
+    description: "Fruta de temporada",
+    postalCode: "28013",
+    shopType: { id: 2, name: "Frutería" },
+    lat: 40.41,
+    lng: -3.71,
+    imageUrl: "/uploads/sol.png",
+    reviewLinks: { google: "https://maps.app.goo.gl/Sol" },
+    phones: ["912345678"],
+  });
 
   it("is prefilled with the shop's data", async () => {
     renderForm({ shop: existing, submitLabel: "Guardar cambios" });
@@ -194,6 +265,10 @@ describe("ShopForm — edit", () => {
     expect(screen.getByTestId("location-map")).toHaveAttribute("data-value", "40.41,-3.71");
     expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "/uploads/sol.png");
     expect(screen.getByLabelText("Imagen de la tienda")).not.toBeRequired();
+    expect(screen.getByLabelText("Google Maps")).toHaveValue("https://maps.app.goo.gl/Sol");
+    expect(screen.getByLabelText("Tripadvisor")).toHaveValue("");
+    expect(screen.getByLabelText("Teléfono 1")).toHaveValue("912 345 678");
+    expect(screen.getByLabelText("Teléfono 2")).toHaveValue("");
   });
 
   it("keeps the location and omits the image when it isn't changed", async () => {

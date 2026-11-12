@@ -1,8 +1,19 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, postalCodeSchema, type ShopDetail } from "@markethub/shared";
+import {
+  DESCRIPTION_MAX_LENGTH,
+  MAX_PHONES,
+  NAME_MAX_LENGTH,
+  phonesSchema,
+  postalCodeSchema,
+  REVIEW_PLATFORMS,
+  REVIEW_URL_MAX_LENGTH,
+  reviewLinksSchema,
+  type ShopDetail,
+} from "@markethub/shared";
 import { errorMessage } from "@/lib/api";
+import { formatPhone } from "@/lib/phone";
 import { SHOP_IMAGE } from "@/lib/images";
 import { useShopTypes } from "@/lib/hooks";
 import { AddressSearch } from "./AddressSearch";
@@ -40,6 +51,12 @@ export function ShopForm({
     const data = new FormData(e.currentTarget);
     const cp = postalCodeSchema.safeParse(data.get("postalCode"));
     if (!cp.success) return setError(cp.error.issues[0]!.message);
+    const phones = phonesSchema.safeParse(Array.from({ length: MAX_PHONES }, (_, i) => data.get(`phones[${i}]`) ?? ""));
+    if (!phones.success) return setError(phones.error.issues[0]!.message);
+    const links = reviewLinksSchema.safeParse(
+      Object.fromEntries(REVIEW_PLATFORMS.map((p) => [p.id, data.get(`reviewLinks[${p.id}]`)])),
+    );
+    if (!links.success) return setError(links.error.issues[0]!.message);
     if (!location) return setError("Marca en el mapa dónde está la tienda");
     data.set("lat", String(location.lat));
     data.set("lng", String(location.lng));
@@ -104,7 +121,51 @@ export function ShopForm({
             </select>
           </div>
         </div>
+        <fieldset className="space-y-2">
+          <legend className="label">Teléfonos (opcional, hasta {MAX_PHONES})</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {Array.from({ length: MAX_PHONES }, (_, i) => (
+              <div key={i}>
+                <label className="sr-only" htmlFor={`phone-${i}`}>
+                  Teléfono {i + 1}
+                </label>
+                <input
+                  id={`phone-${i}`}
+                  name={`phones[${i}]`}
+                  type="tel"
+                  className="input"
+                  autoComplete="off"
+                  maxLength={20}
+                  placeholder={i === 0 ? "912 345 678" : undefined}
+                  defaultValue={shop?.phones[i] ? formatPhone(shop.phones[i]) : undefined}
+                />
+              </div>
+            ))}
+          </div>
+        </fieldset>
         <ImageInput kind={SHOP_IMAGE} value={image} onChange={setImage} currentUrl={shop?.imageUrl} required={!shop} label="Imagen de la tienda" />
+        <fieldset className="space-y-2">
+          <legend className="label">Opiniones de clientes (opcional)</legend>
+          <p className="text-xs text-fg-subtle">Pega el enlace a la página de tu tienda en los sitios de opiniones que uses.</p>
+          {REVIEW_PLATFORMS.map((p) => (
+            <div key={p.id} className="grid items-center gap-1 sm:grid-cols-[10rem_1fr] sm:gap-3">
+              <label className="text-sm text-fg-muted" htmlFor={`review-${p.id}`}>
+                {p.label}
+              </label>
+              {/* Not type="url": a link pasted without "https://" is accepted and completed. */}
+              <input
+                id={`review-${p.id}`}
+                name={`reviewLinks[${p.id}]`}
+                className="input"
+                inputMode="url"
+                autoComplete="off"
+                maxLength={REVIEW_URL_MAX_LENGTH}
+                placeholder={p.example}
+                defaultValue={shop?.reviewLinks[p.id]}
+              />
+            </div>
+          ))}
+        </fieldset>
         {error && <p className="error-box">{error}</p>}
         <div className="flex gap-2">
           <button className="btn btn-primary" disabled={pending}>

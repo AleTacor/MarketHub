@@ -1,4 +1,5 @@
 import type { Role } from "./constants";
+import type { ReviewLinks } from "./schemas";
 
 export interface User {
   id: number;
@@ -34,6 +35,10 @@ export interface Product {
 }
 
 export interface ShopDetail extends ShopSummary {
+  /** Links to the shop's pages on review sites, by platform (only those set). */
+  reviewLinks: ReviewLinks;
+  /** Spanish phone numbers, 9 bare digits each (at most MAX_PHONES). */
+  phones: string[];
   products: Product[];
 }
 
