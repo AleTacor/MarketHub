@@ -13,6 +13,9 @@ export default function nextConfig(phase) {
     reactStrictMode: true,
     // Pin the workspace root so Next doesn't pick up lockfiles outside the repo.
     outputFileTracingRoot: monorepoRoot,
+    // Linting is `pnpm lint` (root eslint.config.mjs, also run by the pre-commit hook).
+    // Next's own build-time lint only looks in apps/web and would miss that config.
+    eslint: { ignoreDuringBuilds: true },
   };
 
   if (phase === PHASE_DEVELOPMENT_SERVER) {

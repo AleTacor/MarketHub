@@ -91,6 +91,7 @@ pnpm install                     # install deps of every app/package
 npm run docker:install           # same, inside the dev container (after changing dependencies)
 pnpm typecheck                   # all packages (turbo)
 pnpm test                        # vitest in every package (no DB or Docker needed)
+pnpm lint / pnpm lint:fix        # ESLint over the whole repo, warnings fail it
 pnpm --filter @markethub/shop-service test:watch
 pnpm build                       # next build
 pnpm --filter @markethub/web dev                 # a single app
@@ -98,6 +99,8 @@ pnpm --filter @markethub/auth-service migrate   # also run automatically on serv
 ```
 
 pnpm is pinned via `packageManager` (pnpm@9.15.9). Install it globally once with `npm install -g pnpm`. pnpm ≥ 9.7 then switches to the pinned version automatically. Don't use `npm install` in this repo.
+
+**Linting and Git hooks:** one flat config at the root, `eslint.config.mjs` (typescript-eslint everywhere, plus `next/core-web-vitals` + `next/typescript` for `apps/web`), run with `--max-warnings 0`. `next build` skips its own lint (`eslint.ignoreDuringBuilds`) because it only looks in `apps/web`. Husky (installed by the `prepare` script on `pnpm install`) runs `pnpm lint` and `pnpm test` in `.husky/pre-commit`; `git commit --no-verify` skips it. The Docker `install` service sets `HUSKY=0` because the image has no git.
 
 How `pnpm dev` works: it runs `docker compose up -d --wait postgres` (exposed on localhost:5432) and then `turbo run dev`, which starts web (:3000), auth-service (:4001) and shop-service (:4002) in parallel. There is no nginx in this mode. Instead `apps/web/next.config.mjs` adds **dev-only rewrites** that mirror nginx: `/api/auth/*` → 4001, `/api/*` → 4002, `/uploads/*` → shop-service, which serves `UPLOAD_DIR` itself via `express.static`. The rewrites only apply in `next dev`. In Docker, nginx routes these paths before they reach Next. Defaults in each `src/config.ts` point at localhost. On the host, data lives in `apps/shop-service/uploads/` and `apps/auth-service/.keys/` (gitignored), separate from the Docker volumes.
 

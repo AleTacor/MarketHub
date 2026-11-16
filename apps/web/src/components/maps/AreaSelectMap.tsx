@@ -91,6 +91,7 @@ function DrawControl({ onAreaChange, clearKey, restoredArea }: Pick<AreaSelectMa
       map.pm.Toolbar.deleteControl(CLEAR_CONTROL);
       map.pm.removeControls();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers only use refs and `map`; listing them would re-run this every render
   }, [map]);
 
   useEffect(() => {
@@ -99,6 +100,7 @@ function DrawControl({ onAreaChange, clearKey, restoredArea }: Pick<AreaSelectMa
       layerRef.current = null;
       setClearDisabled(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers only use refs and `map`; listing them would re-run this every render
   }, [clearKey, map]);
 
   // Draw the restored area. No emit: the page already searches it.
@@ -110,6 +112,7 @@ function DrawControl({ onAreaChange, clearKey, restoredArea }: Pick<AreaSelectMa
     layer.addTo(map);
     setArea(layer);
     map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers only use refs and `map`; listing them would re-run this every render
   }, [restoredArea, map]);
 
   return null;

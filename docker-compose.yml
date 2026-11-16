@@ -15,6 +15,9 @@ services:
   install:
     <<: *node-service
     command: pnpm install --frozen-lockfile
+    # The image has no git: skip installing the Git hooks (they are set up on the host).
+    environment:
+      HUSKY: "0"
     restart: "no"
 
   postgres:

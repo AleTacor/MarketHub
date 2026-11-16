@@ -14,10 +14,20 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^9",
+    "eslint": "^9",
+    "eslint-config-next": "^15",
+    "globals": "^17.14.0",
+    "husky": "^9.1.7",
     "turbo": "^2.11.10",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.2"
   }
 }
