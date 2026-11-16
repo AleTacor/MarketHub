@@ -537,3 +537,159 @@ describe("search page", () => {
     });
   });
 });
+
+// Mobile: the form and map fold away (animated, MobileFold) after a search. jsdom applies
+// no CSS, so these check the toggle's state and the folds' `max-lg:invisible` class
+// (desktop always shows both).
+describe("search panel on mobile", () => {
+  const form = () => screen.getByRole("form", { name: "Buscar tiendas" });
+  const fold = (el: HTMLElement) => el.closest<HTMLElement>("[data-collapsed]")!;
+  const formFold = () => fold(form());
+  const mapFold = () => fold(map());
+  const toggle = () => screen.getByRole("button", { name: /^(Cambiar|Ocultar) búsqueda$/ });
+  const expectCollapsed = (collapsed: boolean) => {
+    expect(toggle()).toHaveAttribute("aria-expanded", String(!collapsed));
+    expect(toggle()).toHaveTextContent(collapsed ? "Cambiar búsqueda" : "Ocultar búsqueda");
+    for (const el of [formFold(), mapFold()]) {
+      expect(el).toHaveAttribute("data-collapsed", String(collapsed));
+      if (collapsed) expect(el).toHaveClass("max-lg:invisible");
+      else expect(el).not.toHaveClass("max-lg:invisible");
+    }
+  };
+
+  it("has no toggle before searching: the form and map are just shown", () => {
+    renderWithClient(<SearchPage />);
+    expect(screen.queryByRole("button", { name: /búsqueda$/ })).not.toBeInTheDocument();
+    expect(formFold()).toHaveAttribute("data-collapsed", "false");
+    expect(mapFold()).toHaveAttribute("data-collapsed", "false");
+  });
+
+  it("folds away after a postal code search, and the toggle opens it again", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.type(cpInput(), "28001");
+    await user.click(searchButton());
+    await expectResults(2);
+
+    expectCollapsed(true);
+    expect(toggle()).toHaveAttribute("aria-controls", `${formFold().id} ${mapFold().id}`);
+    expect(screen.getByText("Código postal 28001")).toBeInTheDocument();
+
+    await user.click(toggle());
+    expectCollapsed(false);
+    await user.click(toggle());
+    expectCollapsed(true);
+  });
+
+  it("folds away again on each new search", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.type(nameInput(), "pan");
+    await user.click(searchButton());
+    expectCollapsed(true);
+    expect(screen.getByText("“pan”")).toBeInTheDocument();
+
+    await user.click(toggle());
+    await user.click(searchButton());
+    expectCollapsed(true);
+  });
+
+  // The page waits AREA_FOLD_DELAY_MS (300 ms) after an area change so the user sees it.
+  const afterAreaDelay = { timeout: 2000 };
+  const pause = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
+
+  it("folds away a moment after an area is drawn, so the user sees it first", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    expectCollapsed(false);
+    expect(screen.getByText("Zona del mapa")).toBeInTheDocument();
+
+    await waitFor(() => expectCollapsed(true), afterAreaDelay);
+  });
+
+  it("waits again after a new or edited area", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    await waitFor(() => expectCollapsed(true), afterAreaDelay);
+
+    await user.click(toggle());
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    expectCollapsed(false);
+    await waitFor(() => expectCollapsed(true), afterAreaDelay);
+  });
+
+  it("doesn't fold on its own after the user used the toggle during the wait", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    await user.click(toggle()); // "Ocultar búsqueda": folds now
+    expectCollapsed(true);
+    await user.click(toggle()); // "Cambiar búsqueda": open again
+
+    await pause(1200);
+    expectCollapsed(false);
+  });
+
+  it("still folds at once when searching with the form", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    await user.type(nameInput(), "pan");
+    await user.click(searchButton());
+    expectCollapsed(true);
+  });
+
+  it("stays open when the search is invalid, to show the error", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.type(cpInput(), "99999");
+    await user.click(searchButton());
+    expect(await screen.findByText(/código postal español válido/)).toBeInTheDocument();
+    expect(formFold()).toHaveAttribute("data-collapsed", "false");
+  });
+
+  it("opens again when the area is removed (nothing searched any more)", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    await user.click(toggle());
+    await user.click(screen.getByRole("button", { name: "Borrar zona" }));
+
+    expect(screen.queryByRole("button", { name: /búsqueda$/ })).not.toBeInTheDocument();
+    expect(formFold()).toHaveAttribute("data-collapsed", "false");
+    expect(mapFold()).toHaveAttribute("data-collapsed", "false");
+  });
+
+  it.each([
+    ["postal code", { kind: "postalCode", postalCode: "28001" }, "Código postal 28001"],
+    ["area", { kind: "area", area: AREA }, "Zona del mapa"],
+  ])("folds away at once, without animation, for a %s search restored on load", async (_label, saved, summary) => {
+    localStorage.setItem(SAVED_SEARCH_STORAGE_KEY, JSON.stringify(saved));
+    renderWithClient(<SearchPage />);
+    await expectResults(2);
+
+    expectCollapsed(true);
+    expect(screen.getByText(summary)).toBeInTheDocument();
+    expect(formFold()).toHaveAttribute("data-animated", "false");
+    expect(mapFold()).toHaveAttribute("data-animated", "false");
+  });
+
+  it("animates again once the user opens the restored search", async () => {
+    localStorage.setItem(SAVED_SEARCH_STORAGE_KEY, JSON.stringify({ kind: "postalCode", postalCode: "28001" }));
+    const { user } = renderWithClient(<SearchPage />);
+    await expectResults(2);
+
+    await user.click(toggle());
+    expectCollapsed(false);
+    expect(formFold()).toHaveAttribute("data-animated", "true");
+    expect(mapFold()).toHaveAttribute("data-animated", "true");
+  });
+
+  it("stays open on load when nothing was saved", () => {
+    renderWithClient(<SearchPage />);
+    expect(formFold()).toHaveAttribute("data-collapsed", "false");
+  });
+
+  it("names the chosen type in the summary", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await screen.findByRole("option", { name: "Frutería" });
+    await user.selectOptions(screen.getByLabelText("Tipo de tienda"), "Frutería");
+    await user.type(cpInput(), "28001");
+    await user.click(searchButton());
+    expect(screen.getByText("Código postal 28001 · Frutería")).toBeInTheDocument();
+  });
+});

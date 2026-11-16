@@ -1,9 +1,10 @@
 "use client";
 
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { postalCodeSchema, type GeoPolygon, type ShopSearchPage } from "@markethub/shared";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { postalCodeSchema, type GeoPolygon, type ShopSearchPage, type ShopType } from "@markethub/shared";
 import { AreaSelectMap } from "@/components/maps";
+import { MobileFold } from "@/components/MobileFold";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
 import { useShopTypes } from "@/lib/hooks";
@@ -32,6 +33,22 @@ function fetchShops(search: Search, offset: number): Promise<ShopSearchPage> {
   return api<ShopSearchPage>(`/api/shops?${params}`);
 }
 
+/**
+ * After drawing or editing an area, the mobile panel waits this long before folding
+ * away, so the user sees the area they just drew (a search by the form folds at once).
+ */
+const AREA_FOLD_DELAY_MS = 300;
+
+/** One line describing the current search, for the collapsed panel on mobile. */
+function describeSearch(search: Search, shopTypes: ShopType[]) {
+  const parts = [
+    search.kind === "area" ? "Zona del mapa" : search.kind === "postalCode" ? `Código postal ${search.postalCode}` : null,
+    search.q ? `“${search.q}”` : null,
+    shopTypes.find((t) => t.id === search.shopTypeId)?.name ?? null,
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
 // Public: customers can search without an account.
 export default function SearchPage() {
   const [postalCode, setPostalCode] = useState("");
@@ -43,6 +60,28 @@ export default function SearchPage() {
   const [clearKey, setClearKey] = useState(0);
   /** Area saved in a previous session, for the map to draw again. */
   const [restoredArea, setRestoredArea] = useState<GeoPolygon | null>(null);
+  /**
+   * Mobile only (map and results are stacked there): after a search the form and map
+   * fold away so the results show; the toggle opens them again. Desktop always shows both.
+   * A search restored on load folds them too, but without animation (see `foldAnimated`).
+   */
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  /** False until the user folds or opens the panel: the fold on load shouldn't slide. */
+  const [foldAnimated, setFoldAnimated] = useState(false);
+  const panelId = useId();
+  const foldTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cancelFold = useCallback(() => clearTimeout(foldTimer.current), []);
+  /** Folds the mobile panel now, or after `delay` ms (a new call restarts the wait). */
+  const foldPanel = useCallback(
+    (delay = 0) => {
+      cancelFold();
+      setFoldAnimated(true);
+      if (delay) foldTimer.current = setTimeout(() => setPanelCollapsed(true), delay);
+      else setPanelCollapsed(true);
+    },
+    [cancelFold],
+  );
+  useEffect(() => cancelFold, [cancelFold]);
 
   // Restore the last area / postal-code search after mount (localStorage doesn't exist during SSR).
   useEffect(() => {
@@ -54,6 +93,8 @@ export default function SearchPage() {
       setPostalCode(saved.postalCode);
       setSearch({ kind: "postalCode", postalCode: saved.postalCode, q: "", shopTypeId: null });
     }
+    // Mobile: show the restored results straight away; the bar's toggle opens the form and map.
+    if (saved) setPanelCollapsed(true);
   }, []);
 
   const { data, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, error } = useInfiniteQuery({
@@ -89,11 +130,16 @@ export default function SearchPage() {
       if (!cp.success) return setFormError(cp.error.issues[0]!.message);
       setClearKey((k) => k + 1); // a postal code search replaces the drawn area
       saveSearch({ kind: "postalCode", postalCode: cp.data });
+      foldPanel();
       return setSearch({ kind: "postalCode", postalCode: cp.data, ...filters });
     }
-    if (search?.kind === "area") return setSearch({ ...search, ...filters });
+    if (search?.kind === "area") {
+      foldPanel();
+      return setSearch({ ...search, ...filters });
+    }
     if (q) {
       saveSearch(null); // a name-only search isn't remembered, and replaces the saved one
+      foldPanel();
       return setSearch({ kind: "name", ...filters });
     }
     setFormError("Introduce un código postal, un nombre o dibuja una zona en el mapa");
@@ -105,12 +151,14 @@ export default function SearchPage() {
       saveSearch(area && { kind: "area", area });
       if (area) {
         setPostalCode("");
+        foldPanel(AREA_FOLD_DELAY_MS);
         setSearch({ kind: "area", area, q: name.trim(), shopTypeId });
       } else {
+        cancelFold();
         setSearch((s) => (s?.kind === "area" ? null : s));
       }
     },
-    [name, shopTypeId],
+    [name, shopTypeId, foldPanel, cancelFold],
   );
 
   /** A select has no "submit" moment: the type applies to the current search at once. */
@@ -119,6 +167,9 @@ export default function SearchPage() {
     setShopTypeId(id);
     setSearch((s) => (s ? { ...s, shopTypeId: id } : s));
   }
+
+  // Nothing searched (or the area was removed): nothing to fold away.
+  const collapsed = panelCollapsed && search !== null;
 
   return (
     // Desktop: one screen tall, no window scroll. Title and form keep their height and
@@ -131,50 +182,78 @@ export default function SearchPage() {
         </p>
       </section>
 
-      <form onSubmit={handleSubmit} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-        <div className="sm:w-44">
-          <label className="label" htmlFor="cp">Código postal</label>
-          <input
-            id="cp"
-            className="input"
-            inputMode="numeric"
-            maxLength={5}
-            placeholder="Ej. 28001"
-            value={postalCode}
-            onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ""))}
-          />
+      {/* Mobile: what is being searched, and a button to show or hide the form and map.
+          Above them (z-10, opaque card), so they seem to slide in and out behind it. */}
+      {search && (
+        <div className="card relative z-10 flex items-center gap-3 px-4 py-2 lg:hidden">
+          <p className="break-anywhere min-w-0 flex-1 text-sm text-fg-muted">{describeSearch(search, shopTypes)}</p>
+          <button
+            type="button"
+            className="btn btn-sm shrink-0"
+            aria-expanded={!collapsed}
+            aria-controls={`${panelId}-form ${panelId}-map`}
+            onClick={() => {
+              cancelFold(); // the user decides now
+              setFoldAnimated(true);
+              setPanelCollapsed(!collapsed);
+            }}
+          >
+            {collapsed ? "Cambiar búsqueda" : "Ocultar búsqueda"}
+          </button>
         </div>
-        <div className="flex-1">
-          <label className="label" htmlFor="q">Nombre de la tienda</label>
-          <input id="q" className="input" placeholder="Buscar por nombre…" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="sm:w-52">
-          <label className="label" htmlFor="type">Tipo de tienda</label>
-          <select id="type" className="input" value={shopTypeId ?? ""} onChange={(e) => handleTypeChange(e.target.value)}>
-            <option value="">Todos los tipos</option>
-            {shopTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button className="btn btn-primary">Buscar</button>
-      </form>
+      )}
+
+      {/* Mobile: the gap above is inside the fold (pt-6 instead of the parent's space-y), so it folds away too. */}
+      <MobileFold id={`${panelId}-form`} collapsed={collapsed} animated={foldAnimated} className="max-lg:!mt-0" innerClassName="max-lg:pt-6">
+        <form aria-label="Buscar tiendas" onSubmit={handleSubmit} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+          <div className="sm:w-44">
+            <label className="label" htmlFor="cp">Código postal</label>
+            <input
+              id="cp"
+              className="input"
+              inputMode="numeric"
+              maxLength={5}
+              placeholder="Ej. 28001"
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ""))}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="label" htmlFor="q">Nombre de la tienda</label>
+            <input id="q" className="input" placeholder="Buscar por nombre…" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="sm:w-52">
+            <label className="label" htmlFor="type">Tipo de tienda</label>
+            <select id="type" className="input" value={shopTypeId ?? ""} onChange={(e) => handleTypeChange(e.target.value)}>
+              <option value="">Todos los tipos</option>
+              {shopTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn btn-primary">Buscar</button>
+        </form>
+      </MobileFold>
       {formError && <p className="error-box">{formError}</p>}
 
       {/* min-h: on a very short window the page scrolls rather than squashing the map. */}
-      <div className="grid gap-6 lg:min-h-[22rem] lg:flex-1 lg:grid-cols-[1fr_1.1fr] lg:grid-rows-[minmax(0,1fr)]">
-        <div className="h-[420px] overflow-hidden rounded-xl border border-line lg:h-auto">
-          <AreaSelectMap
-            shops={shops}
-            onAreaChange={handleAreaChange}
-            clearKey={clearKey}
-            restoredArea={restoredArea}
-            // Fit to the first page only: loading more while scrolling shouldn't move the map.
-            fitToShops={search?.kind !== "area" && pages.length <= 1}
-          />
-        </div>
+      <div className="grid gap-6 max-lg:gap-y-0 lg:min-h-[22rem] lg:flex-1 lg:grid-cols-[1fr_1.1fr] lg:grid-rows-[minmax(0,1fr)]">
+        {/* Folded, not unmounted: the map keeps its drawn area and view. Mobile: the gap
+            below it is inside the fold (pb-6 instead of the grid gap), so it folds away too. */}
+        <MobileFold id={`${panelId}-map`} collapsed={collapsed} animated={foldAnimated} innerClassName="max-lg:pb-6">
+          <div className="h-[420px] overflow-hidden rounded-xl border border-line lg:h-full">
+            <AreaSelectMap
+              shops={shops}
+              onAreaChange={handleAreaChange}
+              clearKey={clearKey}
+              restoredArea={restoredArea}
+              // Fit to the first page only: loading more while scrolling shouldn't move the map.
+              fitToShops={search?.kind !== "area" && pages.length <= 1}
+            />
+          </div>
+        </MobileFold>
 
         {/* As tall as the map on desktop: many results scroll inside instead of growing the page. */}
         <section className="flex min-h-0 flex-col gap-3">
