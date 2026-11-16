@@ -82,12 +82,11 @@ export default function ShopPage() {
         </div>
       </div>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Productos ({shop.products.length})</h2>
-        {shop.products.length === 0 ? (
-          <p className="card p-6 text-center text-fg-subtle">Esta tienda todavía no tiene productos.</p>
-        ) : (
-          // Grid items stretch: every card in a row is as tall as the tallest one.
+      {/* No products: customers see no section at all (owners manage them in /mis-tiendas). */}
+      {shop.products.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Productos ({shop.products.length})</h2>
+          {/* Grid items stretch: every card in a row is as tall as the tallest one. */}
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {shop.products.map((p) => (
               <li key={p.id} className="card overflow-hidden">
@@ -117,8 +116,8 @@ export default function ShopPage() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

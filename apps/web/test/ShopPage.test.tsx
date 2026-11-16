@@ -80,3 +80,18 @@ describe("ShopPage — prices", () => {
     expect(within(bread).queryByText(/€/)).not.toBeInTheDocument();
   });
 });
+
+describe("ShopPage — products section", () => {
+  it("is hidden when the shop has no products", async () => {
+    showShop({ products: [] });
+    await screen.findByRole("heading", { name: "Panadería Luna" });
+    expect(screen.queryByRole("heading", { name: /^Productos/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Esta tienda todavía no tiene productos.")).not.toBeInTheDocument();
+  });
+
+  it("lists the products with their count", async () => {
+    showShop({ products: [{ id: 1, shopId: 1, name: "Barra de pan", description: "", imageUrl: null, stock: null, priceCents: null }] });
+    expect(await screen.findByRole("heading", { name: "Productos (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Barra de pan" })).toBeInTheDocument();
+  });
+});
