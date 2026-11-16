@@ -17,10 +17,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body>
+      {/* Column so <main> fills the space below the header (see .fit-viewport in globals.css). */}
+      <body className="flex min-h-dvh flex-col">
         <Providers>
           <Header />
-          <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
         </Providers>
       </body>
     </html>

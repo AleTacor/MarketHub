@@ -41,6 +41,20 @@
   body {
     @apply bg-canvas text-fg antialiased;
   }
+
+  /*
+   * A page marked .fit-viewport (the search page) is exactly one screen tall on desktop:
+   * the body stops growing and <main> hands its height down, so only the page's own
+   * areas (the results list) scroll, not the window. Below lg the page scrolls as usual.
+   */
+  @media (min-width: 1024px) {
+    body:has(.fit-viewport) {
+      @apply h-dvh;
+    }
+    body:has(.fit-viewport) > main {
+      @apply flex min-h-0 flex-col;
+    }
+  }
 }
 
 @layer components {

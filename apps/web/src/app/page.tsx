@@ -121,7 +121,9 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="space-y-6">
+    // Desktop: one screen tall, no window scroll. Title and form keep their height and
+    // the map/results row takes the rest (the list scrolls inside it).
+    <div className="fit-viewport space-y-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       <section>
         <h1 className="text-2xl font-semibold">Encuentra tiendas cerca de ti</h1>
         <p className="text-fg-subtle">
@@ -161,8 +163,9 @@ export default function SearchPage() {
       </form>
       {formError && <p className="error-box">{formError}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <div className="h-[420px] overflow-hidden rounded-xl border border-line lg:sticky lg:top-20 lg:h-[calc(100vh-7rem)]">
+      {/* min-h: on a very short window the page scrolls rather than squashing the map. */}
+      <div className="grid gap-6 lg:min-h-[22rem] lg:flex-1 lg:grid-cols-[1fr_1.1fr] lg:grid-rows-[minmax(0,1fr)]">
+        <div className="h-[420px] overflow-hidden rounded-xl border border-line lg:h-auto">
           <AreaSelectMap
             shops={shops}
             onAreaChange={handleAreaChange}
@@ -173,8 +176,8 @@ export default function SearchPage() {
           />
         </div>
 
-        {/* Fixed height (the map's, on desktop): many results scroll inside instead of growing the page. */}
-        <section className="flex min-h-0 flex-col gap-3 lg:h-[calc(100vh-7rem)]">
+        {/* As tall as the map on desktop: many results scroll inside instead of growing the page. */}
+        <section className="flex min-h-0 flex-col gap-3">
           {!search && <p className="text-fg-subtle">Aún no has buscado nada.</p>}
           {error && <p className="error-box">{errorMessage(error)}</p>}
           {search && !error && searching && <p className="text-sm text-fg-subtle">Buscando…</p>}
