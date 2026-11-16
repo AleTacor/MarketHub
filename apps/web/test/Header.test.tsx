@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import type { User } from "@markethub/shared";
@@ -96,5 +96,70 @@ describe("Header", () => {
     asVisitor();
     renderWithClient(<Header />);
     expect(await screen.findByRole("button", { name: /^Tema:/ })).toBeInTheDocument();
+  });
+});
+
+describe("Header — mobile menu", () => {
+  const burger = () => screen.getByRole("button", { name: "Abrir menú" });
+  const menu = () => screen.getByRole("navigation", { name: "Menú" }).parentElement!;
+
+  it("is closed at first, and the burger opens it with the navigation and account options", async () => {
+    asVisitor();
+    const { user } = renderWithClient(<Header />);
+    await screen.findByRole("link", { name: "Iniciar sesión" });
+    expect(burger()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("navigation", { name: "Menú" })).not.toBeInTheDocument();
+
+    await user.click(burger());
+
+    const toggle = screen.getByRole("button", { name: "Cerrar menú" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-controls", menu().id);
+    expect(within(menu()).getByRole("link", { name: "Buscar tiendas" })).toHaveAttribute("href", "/");
+    expect(within(menu()).getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/login");
+    expect(within(menu()).getByRole("link", { name: "Crear cuenta" })).toHaveAttribute("href", "/registro");
+
+    await user.click(toggle);
+    expect(screen.queryByRole("navigation", { name: "Menú" })).not.toBeInTheDocument();
+  });
+
+  it("shows an empresario their shops, name and logout", async () => {
+    as({ id: 2, name: "Pepe", role: "empresario" });
+    const { user } = renderWithClient(<Header />);
+    await screen.findByRole("button", { name: "Cerrar sesión" });
+    await user.click(burger());
+
+    expect(within(menu()).getByRole("link", { name: "Mis tiendas" })).toHaveAttribute("href", "/mis-tiendas");
+    expect(within(menu()).getByText("Pepe")).toBeInTheDocument();
+    expect(within(menu()).getByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+  });
+
+  it("closes when a link is chosen", async () => {
+    asVisitor();
+    const { user } = renderWithClient(<Header />);
+    await screen.findByRole("link", { name: "Iniciar sesión" });
+    await user.click(burger());
+
+    await user.click(within(menu()).getByRole("link", { name: "Buscar tiendas" }));
+    expect(screen.queryByRole("navigation", { name: "Menú" })).not.toBeInTheDocument();
+  });
+
+  it("closes with Escape and gives focus back to the burger", async () => {
+    asVisitor();
+    const { user } = renderWithClient(<Header />);
+    await screen.findByRole("link", { name: "Iniciar sesión" });
+    await user.click(burger());
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("navigation", { name: "Menú" })).not.toBeInTheDocument();
+    expect(burger()).toHaveFocus();
+  });
+
+  it.each(["/login", "/registro"])("has no burger on %s", async (path) => {
+    setLocation(path);
+    asVisitor();
+    renderWithClient(<Header />);
+    await screen.findByRole("button", { name: /^Tema:/ });
+    expect(screen.queryByRole("button", { name: "Abrir menú" })).not.toBeInTheDocument();
   });
 });
