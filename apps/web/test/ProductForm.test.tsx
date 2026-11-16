@@ -7,7 +7,7 @@ import { renderWithClient } from "./render";
 vi.mock("@/components/ImageCropDialog", async () => (await import("./imageCrop")).imageCropMock);
 
 const photo = new File(["jpg-bytes"], "pan.jpg", { type: "image/jpeg" });
-const existing: Product = { id: 5, shopId: 1, name: "Barra de pan", description: "Recién hecha", imageUrl: "/uploads/pan.jpg", stock: 12 };
+const existing: Product = { id: 5, shopId: 1, name: "Barra de pan", description: "Recién hecha", imageUrl: "/uploads/pan.jpg", stock: 12, priceCents: 1250 };
 
 function renderForm(props: Partial<Parameters<typeof ProductForm>[0]> = {}) {
   const onSubmit = vi.fn<(data: FormData) => Promise<unknown>>().mockResolvedValue(undefined);
@@ -18,22 +18,32 @@ function renderForm(props: Partial<Parameters<typeof ProductForm>[0]> = {}) {
 const sent = (fn: { mock: { calls: unknown[][] } }) => fn.mock.calls[0]![0] as FormData;
 
 describe("ProductForm — create", () => {
-  it("sends name, description and stock, without an image when none is chosen", async () => {
+  it("sends name, description, price and stock, without an image when none is chosen", async () => {
     const { user, onSubmit } = renderForm();
     await user.type(screen.getByLabelText("Nombre"), "Croissant");
     await user.clear(screen.getByLabelText("Cantidad"));
     await user.type(screen.getByLabelText("Cantidad"), "8");
+    await user.type(screen.getByLabelText("Precio (€)"), "1,20");
     await user.type(screen.getByLabelText("Descripción"), "De mantequilla");
     await user.click(screen.getByRole("button", { name: "Añadir producto" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(Object.fromEntries(sent(onSubmit))).toEqual({ name: "Croissant", stock: "8", description: "De mantequilla" });
+    expect(Object.fromEntries(sent(onSubmit))).toEqual({ name: "Croissant", price: "1,20", stock: "8", description: "De mantequilla" });
   });
 
   it("makes the quantity optional and starts it empty", () => {
     renderForm();
     expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
     expect(screen.getByLabelText("Cantidad")).not.toBeRequired();
+  });
+
+  it("makes the price optional, starts it empty and accepts a decimal comma", () => {
+    renderForm();
+    const price = screen.getByLabelText("Precio (€)");
+    expect(price).toHaveValue("");
+    expect(price).not.toBeRequired();
+    expect(price).toHaveAttribute("inputMode", "decimal");
+    expect(price).toHaveAccessibleDescription("Opcional, p. ej. 12,50");
   });
 
   it("sends an empty quantity when none is given", async () => {
@@ -43,6 +53,7 @@ describe("ProductForm — create", () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(sent(onSubmit).get("stock")).toBe("");
+    expect(sent(onSubmit).get("price")).toBe("");
   });
 
   it("crops the chosen image to the product ratio (4:3) and sends the crop", async () => {
@@ -91,6 +102,7 @@ describe("ProductForm — create", () => {
     await waitFor(() => expect(screen.getByLabelText("Nombre")).toHaveValue(""));
     expect(screen.getByLabelText("Descripción")).toHaveValue("");
     expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
+    expect(screen.getByLabelText("Precio (€)")).toHaveValue("");
   });
 
   it("keeps the values and shows the error when saving fails", async () => {
@@ -141,6 +153,7 @@ describe("ProductForm — edit", () => {
     expect(screen.getByLabelText("Nombre")).toHaveValue("Barra de pan");
     expect(screen.getByLabelText("Descripción")).toHaveValue("Recién hecha");
     expect(screen.getByLabelText("Cantidad")).toHaveValue(12);
+    expect(screen.getByLabelText("Precio (€)")).toHaveValue("12,50");
     expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "/uploads/pan.jpg");
   });
 
@@ -148,6 +161,15 @@ describe("ProductForm — edit", () => {
     renderForm({ product: existing, submitLabel: "Guardar" });
     expect(screen.getByLabelText("Nombre")).toHaveAccessibleDescription("12/100 caracteres");
     expect(screen.getByLabelText("Descripción")).toHaveAccessibleDescription("12/1000 caracteres");
+  });
+
+  it.each([
+    [300, "3"],
+    [99, "0,99"],
+    [null, ""],
+  ])("shows a price of %s cents as %o", (priceCents, shown) => {
+    renderForm({ product: { ...existing, priceCents }, submitLabel: "Guardar" });
+    expect(screen.getByLabelText("Precio (€)")).toHaveValue(shown);
   });
 
   it("shows an empty quantity for a product without one", () => {

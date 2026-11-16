@@ -15,6 +15,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const NAME_MAX_LENGTH = 100;
 export const DESCRIPTION_MAX_LENGTH = 1000;
 
+/** Highest product price, in euros. */
+export const MAX_PRICE_EUROS = 1_000_000;
+
 /** Shops per page of search results (infinite scroll). */
 export const SEARCH_PAGE_SIZE = 10;
 

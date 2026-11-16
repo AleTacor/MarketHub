@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DESCRIPTION_MAX_LENGTH, MAX_PHONES, NAME_MAX_LENGTH, REVIEW_PLATFORMS, REVIEW_URL_MAX_LENGTH, ROLES, type ReviewPlatform } from "./constants";
+import { DESCRIPTION_MAX_LENGTH, MAX_PHONES, MAX_PRICE_EUROS, NAME_MAX_LENGTH, REVIEW_PLATFORMS, REVIEW_URL_MAX_LENGTH, ROLES, type ReviewPlatform } from "./constants";
 
 /** Spanish postal code: 5 digits, province prefix 01–52. */
 export const postalCodeSchema = z
@@ -128,13 +128,40 @@ export const stockSchema = z.coerce
 /** Optional stock: `null` means the quantity isn't tracked. */
 const optionalStockSchema = stockSchema.nullable();
 
-export const productInputSchema = z.object({
-  name: z.string().trim().min(1, "El nombre es obligatorio").max(NAME_MAX_LENGTH, nameMax),
-  description: descriptionField,
-  // Multipart sends an empty field (or none) when no quantity is given. Map that to
-  // null before coercion, which would turn "" into 0.
-  stock: z.preprocess((v) => (v === undefined || v === null || (typeof v === "string" && v.trim() === "") ? null : v), optionalStockSchema),
-});
+const isBlank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+
+const PRICE_RE = /^(\d{1,9})(?:[.,](\d{1,2}))?$/;
+const priceFormat = "Introduce un precio válido (p. ej. 12,50)";
+
+/**
+ * Price typed in euros ("12,50", "12.5", "3", "4,99 €") → integer cents. Decimal
+ * comma or point, at most 2 decimals; no thousands separators ("1.234" would be ambiguous).
+ */
+export const priceSchema = z.preprocess(
+  (v) => (typeof v === "number" ? String(v) : typeof v === "string" ? v.replace(/[\s€]/g, "") : v),
+  z
+    .string({ invalid_type_error: priceFormat })
+    .regex(PRICE_RE, priceFormat)
+    .transform((s) => {
+      const [, euros, cents = ""] = PRICE_RE.exec(s)!;
+      return Number(euros) * 100 + Number(cents.padEnd(2, "0"));
+    })
+    .refine((c) => c <= MAX_PRICE_EUROS * 100, `El precio no puede superar ${MAX_PRICE_EUROS.toLocaleString("es-ES")} €`),
+);
+
+/**
+ * Product form (multipart). The owner types `price` in euros; handlers get `priceCents`.
+ * An empty (or missing) stock or price field means none.
+ */
+export const productInputSchema = z
+  .object({
+    name: z.string().trim().min(1, "El nombre es obligatorio").max(NAME_MAX_LENGTH, nameMax),
+    description: descriptionField,
+    // Map empty to null before coercion, which would turn "" into 0.
+    stock: z.preprocess((v) => (isBlank(v) ? null : v), optionalStockSchema),
+    price: z.preprocess((v) => (isBlank(v) ? null : v), priceSchema.nullable()),
+  })
+  .transform(({ price, ...rest }) => ({ ...rest, priceCents: price }));
 export type ProductInput = z.infer<typeof productInputSchema>;
 
 // JSON body: `{ stock: null }` removes the quantity; a missing `stock` is an error.

@@ -12,6 +12,7 @@ import { StockControl } from "@/components/StockControl";
 import { api, errorMessage } from "@/lib/api";
 import { queryKeys, useShop } from "@/lib/hooks";
 import { PRODUCT_IMAGE, SHOP_IMAGE } from "@/lib/images";
+import { formatPrice } from "@/lib/price";
 
 export default function ManageShopPage() {
   const { id } = useParams<{ id: string }>();
@@ -160,7 +161,12 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
         <div className={`${PRODUCT_IMAGE.className} w-16 rounded-lg bg-surface-muted`} />
       )}
       <div className="min-w-0 flex-1">
-        <p className="break-anywhere font-medium">{product.name}</p>
+        <p className="break-anywhere font-medium">
+          {product.name}
+          <span className="ml-2 whitespace-nowrap text-sm font-normal text-fg-muted">
+            {product.priceCents !== null ? formatPrice(product.priceCents) : "Sin precio"}
+          </span>
+        </p>
         <p className="truncate text-sm text-fg-subtle">{product.description || "Sin descripción"}</p>
       </div>
       <StockControl product={product} />

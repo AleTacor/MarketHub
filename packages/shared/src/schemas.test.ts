@@ -55,6 +55,32 @@ describe("productInputSchema stock", () => {
   });
 });
 
+describe("productInputSchema price", () => {
+  const priceOf = (price: unknown) => productInputSchema.parse({ name: "Pan", price }).priceCents;
+  const error = (price: unknown) => productInputSchema.safeParse({ name: "Pan", price }).error?.issues[0]?.message;
+
+  it("turns euros typed with a comma or a point into cents", () => {
+    expect(priceOf("12,50")).toBe(1250);
+    expect(priceOf("12.5")).toBe(1250);
+    expect(priceOf("3")).toBe(300);
+    expect(priceOf("0,99")).toBe(99);
+    expect(priceOf(" 4,99 € ")).toBe(499);
+    expect(priceOf("0")).toBe(0);
+  });
+
+  it("treats an empty or missing price as none (null), not 0", () => {
+    expect(priceOf("")).toBeNull();
+    expect(priceOf("  ")).toBeNull();
+    expect(priceOf(undefined)).toBeNull();
+  });
+
+  it("rejects invalid prices in Spanish", () => {
+    for (const bad of ["-1", "abc", "1,234", "1.234,50", "12,"]) expect(error(bad)).toBe("Introduce un precio válido (p. ej. 12,50)");
+    expect(error("1000000,01")).toBe("El precio no puede superar 1.000.000 €");
+    expect(priceOf("1000000")).toBe(100_000_000);
+  });
+});
+
 describe("stockUpdateSchema", () => {
   it("accepts null to remove the quantity, but requires the field", () => {
     expect(stockUpdateSchema.parse({ stock: null })).toEqual({ stock: null });

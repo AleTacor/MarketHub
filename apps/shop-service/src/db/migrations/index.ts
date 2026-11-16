@@ -3,6 +3,7 @@ import * as m001 from "./001_create_shops_and_products";
 import * as m002 from "./002_nullable_product_stock";
 import * as m003 from "./003_shop_review_links";
 import * as m004 from "./004_shop_phones";
+import * as m005 from "./005_product_price";
 
 type Migration = { up(k: Knex): Promise<void>; down(k: Knex): Promise<void> };
 
@@ -12,6 +13,7 @@ const migrations: Record<string, Migration> = {
   "002_nullable_product_stock": m002,
   "003_shop_review_links": m003,
   "004_shop_phones": m004,
+  "005_product_price": m005,
 };
 
 export const migrationSource: Knex.MigrationSource<string> = {

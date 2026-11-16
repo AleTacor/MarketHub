@@ -13,7 +13,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let serverStock: number | null;
 let patches: ReturnType<typeof recorder>;
 
-const product = (stock: number | null): Product => ({ id: 5, shopId: 1, name: "Barra de pan", description: "", imageUrl: null, stock });
+const product = (stock: number | null): Product => ({ id: 5, shopId: 1, name: "Barra de pan", description: "", imageUrl: null, stock, priceCents: null });
 
 /** Like the real page: StockControl re-renders from the cached shop. */
 function Harness() {

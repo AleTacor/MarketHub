@@ -32,6 +32,8 @@ export interface Product {
   imageUrl: string | null;
   /** `null`: the shop doesn't track a quantity for this product. */
   stock: number | null;
+  /** Price in euro cents; `null`: no price shown. */
+  priceCents: number | null;
 }
 
 export interface ShopDetail extends ShopSummary {

@@ -7,6 +7,7 @@ import { ExpandableText } from "@/components/ExpandableText";
 import { ShopLocationMap } from "@/components/maps";
 import { errorMessage } from "@/lib/api";
 import { formatPhone, phoneHref } from "@/lib/phone";
+import { formatPrice } from "@/lib/price";
 import { PRODUCT_IMAGE, SHOP_IMAGE } from "@/lib/images";
 import { useMe, useShop } from "@/lib/hooks";
 
@@ -110,6 +111,7 @@ export default function ShopPage() {
                       </span>
                     )}
                   </div>
+                  {p.priceCents !== null && <p className="mt-1 text-lg font-semibold text-fg">{formatPrice(p.priceCents)}</p>}
                   {p.description && <ExpandableText text={p.description} className="mt-1 text-sm text-fg-muted" />}
                 </div>
               </li>

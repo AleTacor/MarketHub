@@ -43,6 +43,7 @@ const PRODUCT_COLUMNS: string[] = [
   "description",
   "image_url as imageUrl",
   "stock",
+  "price_cents as priceCents",
 ];
 
 /** Escapes LIKE wildcards so user input matches literally. */
@@ -176,7 +177,7 @@ export function createRepository(db: Knex) {
 
     async createProduct(shopId: number, input: ProductInput, imageUrl: string | null) {
       const [row] = await db("products")
-        .insert({ shop_id: shopId, name: input.name, description: input.description, stock: input.stock, image_url: imageUrl })
+        .insert({ shop_id: shopId, name: input.name, description: input.description, stock: input.stock, price_cents: input.priceCents, image_url: imageUrl })
         .returning<Product[]>(PRODUCT_COLUMNS);
       return row!;
     },
@@ -188,6 +189,7 @@ export function createRepository(db: Knex) {
           name: input.name,
           description: input.description,
           stock: input.stock,
+          price_cents: input.priceCents,
           ...(imageUrl ? { image_url: imageUrl } : {}),
           updated_at: db.fn.now(),
         })

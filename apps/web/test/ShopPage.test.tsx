@@ -56,3 +56,27 @@ describe("ShopPage — phones", () => {
     expect(screen.queryByRole("heading", { name: "Teléfonos" })).not.toBeInTheDocument();
   });
 });
+
+describe("ShopPage — prices", () => {
+  const product = { shopId: 1, description: "", imageUrl: null, stock: null };
+
+  it("shows each product's price in euros, Spanish style", async () => {
+    showShop({
+      products: [
+        { ...product, id: 1, name: "Barra de pan", priceCents: 120 },
+        { ...product, id: 2, name: "Tarta", priceCents: 123450 },
+      ],
+    });
+
+    const bread = (await screen.findByRole("heading", { name: "Barra de pan" })).closest("li")!;
+    expect(within(bread).getByText(/^1,20\s€$/)).toBeInTheDocument();
+    const cake = screen.getByRole("heading", { name: "Tarta" }).closest("li")!;
+    expect(within(cake).getByText(/^1234,50\s€$/)).toBeInTheDocument();
+  });
+
+  it("shows no price for a product without one", async () => {
+    showShop({ products: [{ ...product, id: 1, name: "Barra de pan", priceCents: null }] });
+    const bread = (await screen.findByRole("heading", { name: "Barra de pan" })).closest("li")!;
+    expect(within(bread).queryByText(/€/)).not.toBeInTheDocument();
+  });
+});

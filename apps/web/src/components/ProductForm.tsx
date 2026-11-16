@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent } from "react";
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, type Product } from "@markethub/shared";
 import { errorMessage } from "@/lib/api";
 import { PRODUCT_IMAGE } from "@/lib/images";
+import { priceInputValue } from "@/lib/price";
 import { ImageInput } from "./ImageInput";
 import { TextField } from "./TextField";
 
@@ -46,8 +47,24 @@ export function ProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+      <div className="grid gap-3 sm:grid-cols-[1fr_8rem_8rem]">
         <TextField id={`${id}-name`} name="name" label="Nombre" required maxLength={NAME_MAX_LENGTH} defaultValue={product?.name} />
+        <div>
+          <label className="label" htmlFor={`${id}-price`}>Precio (€)</label>
+          {/* Text, not number: Spanish users type a decimal comma ("12,50"). Validated by the shared schema. */}
+          <input
+            id={`${id}-price`}
+            name="price"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            className="input"
+            placeholder="Sin indicar"
+            aria-describedby={`${id}-price-hint`}
+            defaultValue={priceInputValue(product?.priceCents ?? null)}
+          />
+          <p id={`${id}-price-hint`} className="mt-1 text-xs text-fg-subtle">Opcional, p. ej. 12,50</p>
+        </div>
         <div>
           <label className="label" htmlFor={`${id}-stock`}>Cantidad</label>
           {/* Optional: left empty, the product has no quantity. */}

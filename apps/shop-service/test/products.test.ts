@@ -27,7 +27,7 @@ describe("POST /api/shops/:id/products", () => {
       .set("Cookie", owner)
       .field({ name: "Barra de pan", stock: "12" })
       .expect(201);
-    expect(ctx.repo.createProduct).toHaveBeenCalledWith(1, { name: "Barra de pan", description: "", stock: 12 }, null);
+    expect(ctx.repo.createProduct).toHaveBeenCalledWith(1, { name: "Barra de pan", description: "", stock: 12, priceCents: null }, null);
     expect(res.body).toMatchObject({ name: "Barra de pan", stock: 12 });
   });
 
@@ -36,8 +36,18 @@ describe("POST /api/shops/:id/products", () => {
     ["no quantity field", { name: "Pan" }],
   ])("creates a product without a quantity from %s", async (_label, fields) => {
     const res = await request(ctx.app).post("/api/shops/1/products").set("Cookie", owner).field(fields).expect(201);
-    expect(ctx.repo.createProduct).toHaveBeenCalledWith(1, { name: "Pan", description: "", stock: null }, null);
+    expect(ctx.repo.createProduct).toHaveBeenCalledWith(1, { name: "Pan", description: "", stock: null, priceCents: null }, null);
     expect(res.body.stock).toBeNull();
+  });
+
+  it("stores the price typed in euros as cents", async () => {
+    const res = await request(ctx.app)
+      .post("/api/shops/1/products")
+      .set("Cookie", owner)
+      .field({ name: "Croissant", price: "1,20" })
+      .expect(201);
+    expect(ctx.repo.createProduct).toHaveBeenCalledWith(1, { name: "Croissant", description: "", stock: null, priceCents: 120 }, null);
+    expect(res.body.priceCents).toBe(120);
   });
 
   it("stores the image when sent", async () => {
@@ -54,9 +64,13 @@ describe("POST /api/shops/:id/products", () => {
     [{ name: "", stock: "1" }, "El nombre es obligatorio"],
     [{ name: "Pan", stock: "-1" }, "La cantidad no puede ser negativa"],
     [{ name: "Pan", stock: "1.5" }, "La cantidad debe ser un número entero"],
+    [{ name: "Pan", price: "-2" }, "Introduce un precio válido (p. ej. 12,50)"],
+    [{ name: "Pan", price: "1,999" }, "Introduce un precio válido (p. ej. 12,50)"],
+    [{ name: "Pan", price: "2000000" }, "El precio no puede superar 1.000.000 €"],
   ])("validates %o", async (fields, message) => {
     const res = await request(ctx.app).post("/api/shops/1/products").set("Cookie", owner).field(fields).expect(400);
     expect(res.body.error).toBe(message);
+    expect(ctx.repo.createProduct).not.toHaveBeenCalled();
   });
 
   it("returns 403 on another empresario's shop", async () => {
@@ -123,13 +137,13 @@ describe("PUT /api/products/:id", () => {
     await request(ctx.app)
       .put("/api/products/5")
       .set("Cookie", owner)
-      .field({ name: "Pan integral", description: "Con semillas", stock: "4" })
+      .field({ name: "Pan integral", description: "Con semillas", stock: "4", price: "2,75" })
       .attach("image", PNG, { filename: "n.png", contentType: "image/png" })
       .expect(200);
 
     const [id, input, imageUrl] = ctx.repo.updateProduct.mock.calls[0]!;
     expect(id).toBe(5);
-    expect(input).toEqual({ name: "Pan integral", description: "Con semillas", stock: 4 });
+    expect(input).toEqual({ name: "Pan integral", description: "Con semillas", stock: 4, priceCents: 275 });
     expect(imageUrl).toMatch(/^\/uploads\//);
     expect(await readdir(UPLOAD_DIR)).not.toContain("old-product.png");
   });
