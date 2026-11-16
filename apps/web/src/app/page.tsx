@@ -63,11 +63,14 @@ export default function SearchPage() {
   /**
    * Mobile only (map and results are stacked there): after a search the form and map
    * fold away so the results show; the toggle opens them again. Desktop always shows both.
-   * A search restored on load folds them too, but without animation (see `foldAnimated`).
+   * A search restored on load folds them too, but without animation (see `layoutAnimated`).
    */
   const [panelCollapsed, setPanelCollapsed] = useState(false);
-  /** False until the user folds or opens the panel: the fold on load shouldn't slide. */
-  const [foldAnimated, setFoldAnimated] = useState(false);
+  /**
+   * False until the user does something (searches, draws, uses the toggle): what a
+   * restored search changes on load (panel folded, results shown) shouldn't animate.
+   */
+  const [layoutAnimated, setLayoutAnimated] = useState(false);
   const panelId = useId();
   const foldTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const cancelFold = useCallback(() => clearTimeout(foldTimer.current), []);
@@ -75,7 +78,7 @@ export default function SearchPage() {
   const foldPanel = useCallback(
     (delay = 0) => {
       cancelFold();
-      setFoldAnimated(true);
+      setLayoutAnimated(true);
       if (delay) foldTimer.current = setTimeout(() => setPanelCollapsed(true), delay);
       else setPanelCollapsed(true);
     },
@@ -155,6 +158,7 @@ export default function SearchPage() {
         setSearch({ kind: "area", area, q: name.trim(), shopTypeId });
       } else {
         cancelFold();
+        setLayoutAnimated(true); // the results hide, animated
         setSearch((s) => (s?.kind === "area" ? null : s));
       }
     },
@@ -168,8 +172,10 @@ export default function SearchPage() {
     setSearch((s) => (s ? { ...s, shopTypeId: id } : s));
   }
 
-  // Nothing searched (or the area was removed): nothing to fold away.
+  // Nothing searched (or the area was removed): nothing to fold away, no results to show.
   const collapsed = panelCollapsed && search !== null;
+  const showResults = search !== null;
+  const layoutTransition = layoutAnimated ? "duration-700 ease-in-out motion-reduce:transition-none" : "";
 
   return (
     // Desktop: one screen tall, no window scroll. Title and form keep their height and
@@ -194,7 +200,7 @@ export default function SearchPage() {
             aria-controls={`${panelId}-form ${panelId}-map`}
             onClick={() => {
               cancelFold(); // the user decides now
-              setFoldAnimated(true);
+              setLayoutAnimated(true);
               setPanelCollapsed(!collapsed);
             }}
           >
@@ -204,7 +210,7 @@ export default function SearchPage() {
       )}
 
       {/* Mobile: the gap above is inside the fold (pt-6 instead of the parent's space-y), so it folds away too. */}
-      <MobileFold id={`${panelId}-form`} collapsed={collapsed} animated={foldAnimated} className="max-lg:!mt-0" innerClassName="max-lg:pt-6">
+      <MobileFold id={`${panelId}-form`} collapsed={collapsed} animated={layoutAnimated} className="max-lg:!mt-0" innerClassName="max-lg:pt-6">
         <form aria-label="Buscar tiendas" onSubmit={handleSubmit} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
           <div className="sm:w-44">
             <label className="label" htmlFor="cp">Código postal</label>
@@ -238,11 +244,17 @@ export default function SearchPage() {
       </MobileFold>
       {formError && <p className="error-box">{formError}</p>}
 
-      {/* min-h: on a very short window the page scrolls rather than squashing the map. */}
-      <div className="grid gap-6 max-lg:gap-y-0 lg:min-h-[22rem] lg:flex-1 lg:grid-cols-[1fr_1.1fr] lg:grid-rows-[minmax(0,1fr)]">
+      {/* min-h: on a very short window the page scrolls rather than squashing the map.
+          Desktop: until something is searched the map takes the whole width; then the
+          results column opens (grid columns and gap animate, the map narrows with them). */}
+      <div
+        className={`grid gap-6 max-lg:gap-y-0 lg:min-h-[22rem] lg:flex-1 lg:grid-rows-[minmax(0,1fr)] ${
+          layoutAnimated ? `lg:transition-[grid-template-columns,column-gap] ${layoutTransition}` : ""
+        } ${showResults ? "lg:grid-cols-[1fr_1.1fr]" : "lg:grid-cols-[1fr_0fr] lg:gap-x-0"}`}
+      >
         {/* Folded, not unmounted: the map keeps its drawn area and view. Mobile: the gap
             below it is inside the fold (pb-6 instead of the grid gap), so it folds away too. */}
-        <MobileFold id={`${panelId}-map`} collapsed={collapsed} animated={foldAnimated} innerClassName="max-lg:pb-6">
+        <MobileFold id={`${panelId}-map`} collapsed={collapsed} animated={layoutAnimated} innerClassName="max-lg:pb-6">
           <div className="h-[420px] overflow-hidden rounded-xl border border-line lg:h-full">
             <AreaSelectMap
               shops={shops}
@@ -255,43 +267,52 @@ export default function SearchPage() {
           </div>
         </MobileFold>
 
-        {/* As tall as the map on desktop: many results scroll inside instead of growing the page. */}
-        <section className="flex min-h-0 flex-col gap-3">
-          {!search && <p className="text-fg-subtle">Aún no has buscado nada.</p>}
-          {error && <p className="error-box">{errorMessage(error)}</p>}
-          {search && !error && searching && <p className="text-sm text-fg-subtle">Buscando…</p>}
-          {shops.length > 0 && (
-            // p-1: room for the cards' hover border/shadow, which overflow would clip.
-            <ul
-              ref={listRef}
-              aria-label="Tiendas encontradas"
-              aria-busy={isFetchingNextPage}
-              className="-m-1 max-h-[70vh] min-h-0 flex-1 space-y-3 overflow-y-auto p-1 lg:max-h-none"
-            >
-              {shops.map((shop) => (
-                <li key={shop.id}>
-                  <ShopCard shop={shop} />
-                </li>
-              ))}
-              {hasNextPage && (
-                // Watched by useInfiniteScroll; the button is the fallback (keyboard, no IntersectionObserver).
-                <li ref={sentinelRef} className="py-2 text-center">
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    disabled={isFetching}
-                    onClick={() => void fetchNextPage()}
-                  >
-                    {isFetchingNextPage ? "Cargando…" : "Cargar más tiendas"}
-                  </button>
-                </li>
-              )}
-            </ul>
-          )}
-          {search && !searching && !error && shops.length === 0 && (
-            <p className="card p-6 text-center text-fg-subtle">No hay tiendas que coincidan con tu búsqueda.</p>
-          )}
-        </section>
+        {/* Hidden until something is searched. Mobile: slides down under the map (rows
+            0fr → 1fr); desktop: its column opens (above). Both fade; hidden it is
+            `invisible`, out of the tab order and the accessibility tree. */}
+        <div
+          data-shown={showResults}
+          className={`grid min-w-0 lg:!grid-rows-[minmax(0,1fr)] ${
+            layoutAnimated ? `transition-[grid-template-rows,opacity,visibility] ${layoutTransition}` : ""
+          } ${showResults ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] overflow-hidden opacity-0"}`}
+        >
+          {/* As tall as the map on desktop: many results scroll inside instead of growing the page. */}
+          <section aria-label="Resultados" className="flex min-h-0 flex-col gap-3">
+            {error && <p className="error-box">{errorMessage(error)}</p>}
+            {search && !error && searching && <p className="text-sm text-fg-subtle">Buscando…</p>}
+            {shops.length > 0 && (
+              // p-1: room for the cards' hover border/shadow, which overflow would clip.
+              <ul
+                ref={listRef}
+                aria-label="Tiendas encontradas"
+                aria-busy={isFetchingNextPage}
+                className="-m-1 max-h-[70vh] min-h-0 flex-1 space-y-3 overflow-y-auto p-1 lg:max-h-none"
+              >
+                {shops.map((shop) => (
+                  <li key={shop.id}>
+                    <ShopCard shop={shop} />
+                  </li>
+                ))}
+                {hasNextPage && (
+                  // Watched by useInfiniteScroll; the button is the fallback (keyboard, no IntersectionObserver).
+                  <li ref={sentinelRef} className="py-2 text-center">
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={isFetching}
+                      onClick={() => void fetchNextPage()}
+                    >
+                      {isFetchingNextPage ? "Cargando…" : "Cargar más tiendas"}
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+            {search && !searching && !error && shops.length === 0 && (
+              <p className="card p-6 text-center text-fg-subtle">No hay tiendas que coincidan con tu búsqueda.</p>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

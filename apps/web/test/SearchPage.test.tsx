@@ -68,11 +68,19 @@ const expectResults = (n: number) =>
 const nameInput = () => screen.getByLabelText("Nombre de la tienda");
 const searchButton = () => screen.getByRole("button", { name: "Buscar" });
 const map = () => screen.getByTestId("map");
+/** Wrapper of the results section: hidden (animated) until something is searched. */
+const results = () => screen.getByRole("region", { name: "Resultados" }).closest<HTMLElement>("[data-shown]")!;
+const expectResultsShown = (shown: boolean) => {
+  expect(results()).toHaveAttribute("data-shown", String(shown));
+  if (shown) expect(results()).not.toHaveClass("invisible");
+  else expect(results()).toHaveClass("invisible");
+};
 
 describe("search page", () => {
-  it("starts empty and doesn't call the API", () => {
+  it("starts with the results hidden, no message, and doesn't call the API", () => {
     renderWithClient(<SearchPage />);
-    expect(screen.getByText("Aún no has buscado nada.")).toBeInTheDocument();
+    expectResultsShown(false);
+    expect(screen.queryByText("Aún no has buscado nada.")).not.toBeInTheDocument();
     expect(listCalls.calls).toHaveLength(0);
     expect(areaCalls.calls).toHaveLength(0);
   });
@@ -203,7 +211,7 @@ describe("search page", () => {
 
     await user.click(screen.getByRole("button", { name: "Borrar zona" }));
 
-    expect(screen.getByText("Aún no has buscado nada.")).toBeInTheDocument();
+    expectResultsShown(false);
     expect(screen.queryByRole("link", { name: /Panadería Luna/ })).not.toBeInTheDocument();
     expect(map()).toHaveAttribute("data-shops", "0");
   });
@@ -398,7 +406,7 @@ describe("search page", () => {
       store(value);
       renderWithClient(<SearchPage />);
 
-      expect(screen.getByText("Aún no has buscado nada.")).toBeInTheDocument();
+      expectResultsShown(false);
       expect(cpInput()).toHaveValue("");
       expect(map()).toHaveAttribute("data-restored-area", "");
       expect(areaCalls.calls).toHaveLength(0);
@@ -693,3 +701,60 @@ describe("search panel on mobile", () => {
     expect(screen.getByText("Código postal 28001 · Frutería")).toBeInTheDocument();
   });
 });
+
+// The results section (and on desktop its column) opens once something is searched.
+// jsdom applies no CSS: these check the state and whether the change animates.
+describe("results section", () => {
+  const grid = () => results().parentElement!;
+  const animates = (el: HTMLElement) => /(^|\s)(lg:)?transition-\[/.test(el.className);
+
+  it("opens with an animation on the first search, and the map gives it room on desktop", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    expect(grid()).toHaveClass("lg:grid-cols-[1fr_0fr]");
+
+    await user.type(cpInput(), "28001");
+    await user.click(searchButton());
+
+    expectResultsShown(true);
+    expect(animates(results())).toBe(true);
+    expect(grid()).toHaveClass("lg:grid-cols-[1fr_1.1fr]");
+    expect(animates(grid())).toBe(true);
+    await expectResults(2);
+  });
+
+  it("opens at once when an area is drawn (the fold waits, the results don't)", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    expectResultsShown(true);
+  });
+
+  it("closes, animated, when the area is removed", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+    await expectResults(2);
+    await user.click(screen.getByRole("button", { name: "Borrar zona" }));
+
+    expectResultsShown(false);
+    expect(animates(results())).toBe(true);
+    expect(grid()).toHaveClass("lg:grid-cols-[1fr_0fr]");
+  });
+
+  it("is already open, without animation, for a search restored on load", async () => {
+    localStorage.setItem(SAVED_SEARCH_STORAGE_KEY, JSON.stringify({ kind: "area", area: AREA }));
+    renderWithClient(<SearchPage />);
+    await expectResults(2);
+
+    expectResultsShown(true);
+    expect(animates(results())).toBe(false);
+    expect(animates(grid())).toBe(false);
+  });
+
+  it("stays hidden when the search is invalid", async () => {
+    const { user } = renderWithClient(<SearchPage />);
+    await user.type(cpInput(), "99999");
+    await user.click(searchButton());
+    expect(await screen.findByText(/código postal español válido/)).toBeInTheDocument();
+    expectResultsShown(false);
+  });
+});
+

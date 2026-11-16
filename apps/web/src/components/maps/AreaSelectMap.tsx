@@ -22,6 +22,24 @@ export interface AreaSelectMapProps {
   fitToShops: boolean;
 }
 
+/**
+ * Leaflet only re-measures itself on window resizes, but the search page also resizes
+ * the map's container (the results column opens and closes, animated).
+ */
+function TrackSize() {
+  const map = useMap();
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => map.invalidateSize({ debounceMoveend: true }));
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
+/** How long after a fit the map keeps re-fitting while its container is still resizing. */
+const REFIT_WINDOW_MS = 1000;
+
 /** Toolbar button that deletes the drawn area in one click (replaces Geoman's removal mode). */
 const CLEAR_CONTROL = "clearArea";
 
@@ -111,9 +129,22 @@ function DrawControl({ onAreaChange, clearKey, restoredArea }: Pick<AreaSelectMa
     if (!layer) return;
     layer.addTo(map);
     setArea(layer);
+    map.invalidateSize(); // the container may have just changed size (results column)
     map.fitBounds(layer.getBounds(), { padding: [20, 20] });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers only use refs and `map`; listing them would re-run this every render
   }, [restoredArea, map]);
+
+  // When the map narrows (results column opening), keep the drawn area in view.
+  useEffect(() => {
+    const keepAreaInView = () => {
+      const bounds = (layerRef.current as L.Polygon | null)?.getBounds?.();
+      if (bounds && !map.getBounds().contains(bounds)) map.fitBounds(bounds, { padding: [20, 20], animate: false });
+    };
+    map.on("resize", keepAreaInView);
+    return () => {
+      map.off("resize", keepAreaInView);
+    };
+  }, [map]);
 
   return null;
 }
@@ -122,7 +153,18 @@ function FitToShops({ shops, enabled }: { shops: ShopSummary[]; enabled: boolean
   const map = useMap();
   useEffect(() => {
     if (!enabled || shops.length === 0) return;
-    map.fitBounds(L.latLngBounds(shops.map((s) => [s.lat, s.lng])), { padding: [40, 40], maxZoom: 15 });
+    const bounds = L.latLngBounds(shops.map((s) => [s.lat, s.lng]));
+    const options = { padding: [40, 40] as L.PointTuple, maxZoom: 15 };
+    map.invalidateSize();
+    map.fitBounds(bounds, options);
+    // The results column may still be opening: fit again (no animation) while the map resizes.
+    const refit = () => map.fitBounds(bounds, { ...options, animate: false });
+    map.on("resize", refit);
+    const stop = setTimeout(() => map.off("resize", refit), REFIT_WINDOW_MS);
+    return () => {
+      clearTimeout(stop);
+      map.off("resize", refit);
+    };
   }, [shops, enabled, map]);
   return null;
 }
@@ -131,6 +173,7 @@ export default function AreaSelectMap({ shops, onAreaChange, clearKey, restoredA
   return (
     <MapContainer center={SPAIN_CENTER} zoom={SPAIN_ZOOM} className="h-full w-full">
       <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+      <TrackSize />
       <DrawControl onAreaChange={onAreaChange} clearKey={clearKey} restoredArea={restoredArea} />
       <FitToShops shops={shops} enabled={fitToShops} />
       {shops.map((s) => (
