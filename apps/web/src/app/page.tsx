@@ -182,8 +182,11 @@ export default function SearchPage() {
     // the map/results row takes the rest (the list scrolls inside it).
     <div className="fit-viewport space-y-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       <section>
-        <h1 className="text-2xl font-semibold">Encuentra tiendas cerca de ti</h1>
-        <p className="text-fg-subtle">
+        <h1 className="text-2xl font-bold sm:text-3xl">
+          Encuentra tiendas{" "}
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">cerca de ti</span>
+        </h1>
+        <p className="mt-1 text-fg-subtle">
           Escribe tu código postal o dibuja una zona en el mapa con las herramientas de la izquierda.
         </p>
       </section>
@@ -255,7 +258,7 @@ export default function SearchPage() {
         {/* Folded, not unmounted: the map keeps its drawn area and view. Mobile: the gap
             below it is inside the fold (pb-6 instead of the grid gap), so it folds away too. */}
         <MobileFold id={`${panelId}-map`} collapsed={collapsed} animated={layoutAnimated} innerClassName="max-lg:pb-6">
-          <div className="h-[420px] overflow-hidden rounded-xl border border-line lg:h-full">
+          <div className="h-[420px] overflow-hidden rounded-2xl border border-line shadow-card lg:h-full">
             <AreaSelectMap
               shops={shops}
               onAreaChange={handleAreaChange}

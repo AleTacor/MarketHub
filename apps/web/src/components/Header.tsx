@@ -87,10 +87,20 @@ export function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-surface/80 shadow-soft backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <Link href="/" className="text-lg font-bold text-accent">
-          MarketHub
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-fg">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-brand" aria-hidden="true">
+            {/* Storefront with an awning. */}
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9" />
+              <path d="M3 6l1.5-3h15L21 6v1.5a2.5 2.5 0 0 1-4.5 1.5 2.5 2.5 0 0 1-4.5 0 2.5 2.5 0 0 1-4.5 0A2.5 2.5 0 0 1 3 7.5z" />
+              <path d="M10 20v-5h4v5" />
+            </svg>
+          </span>
+          <span>
+            Market<span className="text-accent">Hub</span>
+          </span>
         </Link>
         {!isAuthPage && <nav className="hidden gap-1 md:flex">{navLinks()}</nav>}
         <div className="ml-auto flex items-center gap-2 text-sm">

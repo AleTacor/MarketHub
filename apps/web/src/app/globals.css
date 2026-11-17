@@ -6,16 +6,22 @@
 @layer base {
   :root {
     color-scheme: light;
-    --canvas: 248 250 252; /* slate-50 */
+    /* Warm, slightly green-tinted neutrals instead of cold slate. */
+    --canvas: 247 248 244;
     --surface: 255 255 255;
-    --surface-muted: 241 245 249; /* slate-100 */
-    --line: 226 232 240; /* slate-200 */
-    --line-strong: 203 213 225; /* slate-300 */
-    --fg: 30 41 59; /* slate-800 */
-    --fg-muted: 71 85 105; /* slate-600 */
-    --fg-subtle: 100 116 139; /* slate-500 */
+    --surface-muted: 241 243 237;
+    --line: 228 231 222;
+    --line-strong: 208 213 200;
+    --fg: 28 35 30;
+    --fg-muted: 72 82 74;
+    --fg-subtle: 100 110 102;
     --accent: 21 128 61; /* green-700 */
-    --accent-soft: 236 253 243;
+    --accent-soft: 230 245 234;
+    /* Shadow tint and the strength of the background glow (body). */
+    --shadow: 22 48 32;
+    --shadow-alpha: 0.08;
+    --glow: 34 197 94; /* green-500 */
+    --glow-alpha: 0.12;
     --danger: 185 28 28; /* red-700 */
     --danger-soft: 254 242 242; /* red-50 */
     --danger-line: 254 202 202; /* red-200 */
@@ -36,10 +42,25 @@
     --danger: 252 165 165; /* red-300 */
     --danger-soft: 69 10 10; /* red-950 */
     --danger-line: 127 29 29; /* red-900 */
+    --shadow: 0 0 0;
+    --shadow-alpha: 0.35;
+    --glow: 74 222 128; /* green-400 */
+    --glow-alpha: 0.05;
   }
 
   body {
-    @apply bg-canvas text-fg antialiased;
+    @apply bg-canvas font-sans text-fg antialiased;
+    /* Soft brand-colored glows at the top corners, fixed so they don't scroll away. */
+    background-image:
+      radial-gradient(60rem 30rem at 10% -10%, rgb(var(--glow) / var(--glow-alpha)), transparent 70%),
+      radial-gradient(50rem 26rem at 95% -5%, rgb(var(--glow) / calc(var(--glow-alpha) * 0.6)), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
   }
 
   /*
@@ -59,10 +80,10 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-fg-muted transition hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-fg-muted shadow-soft transition hover:border-brand-500/50 hover:bg-surface-muted hover:text-fg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-primary {
-    @apply border-brand-600 bg-brand-600 text-white hover:bg-brand-700;
+    @apply border-brand-600 bg-gradient-to-b from-brand-500 to-brand-600 font-semibold text-white shadow-brand hover:border-brand-700 hover:from-brand-600 hover:to-brand-700 hover:text-white;
   }
   .btn-danger {
     @apply border-danger-line text-danger hover:bg-danger-soft;
@@ -71,13 +92,13 @@
     @apply px-2.5 py-1 text-xs;
   }
   .input {
-    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg shadow-sm outline-none placeholder:text-fg-subtle focus:border-brand-500 focus:ring-2 focus:ring-accent-soft;
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg shadow-inner-soft outline-none transition placeholder:text-fg-subtle hover:border-brand-500/50 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-fg-muted;
   }
   .card {
-    @apply rounded-xl border border-line bg-surface shadow-sm;
+    @apply rounded-2xl border border-line bg-surface shadow-card;
   }
   /* Long words without spaces wrap instead of overflowing (also in flex/grid items). */
   .break-anywhere {

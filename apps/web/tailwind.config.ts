@@ -20,6 +20,18 @@ export default {
         accent: { DEFAULT: token("accent"), soft: token("accent-soft") },
         danger: { DEFAULT: token("danger"), soft: token("danger-soft"), line: token("danger-line") },
       },
+      fontFamily: {
+        // Set by next/font in layout.tsx.
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      // Shadows tinted by --shadow, with a per-theme strength (--shadow-alpha).
+      boxShadow: {
+        soft: "0 1px 2px rgb(var(--shadow) / var(--shadow-alpha))",
+        "inner-soft": "inset 0 1px 2px rgb(var(--shadow) / calc(var(--shadow-alpha) * 0.6))",
+        card: "0 1px 2px rgb(var(--shadow) / var(--shadow-alpha)), 0 8px 24px -12px rgb(var(--shadow) / calc(var(--shadow-alpha) * 1.6))",
+        lift: "0 2px 4px rgb(var(--shadow) / var(--shadow-alpha)), 0 16px 32px -12px rgb(var(--shadow) / calc(var(--shadow-alpha) * 2.2))",
+        brand: "inset 0 1px 0 rgb(255 255 255 / 0.2), 0 1px 2px rgb(21 128 61 / 0.3), 0 4px 12px -4px rgb(22 163 74 / 0.5)",
+      },
     },
   },
   plugins: [],

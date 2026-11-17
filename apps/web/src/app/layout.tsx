@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import { Header } from "@/components/Header";
 import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
 import { Providers } from "./providers";
+
+const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
   title: "MarketHub · Comercios de tu barrio",
@@ -13,7 +16,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: the init script adds the "dark" class before React hydrates.
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es" className={sans.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
