@@ -18,6 +18,7 @@ import { SHOP_IMAGE } from "@/lib/images";
 import { useShopTypes } from "@/lib/hooks";
 import { AddressSearch } from "./AddressSearch";
 import { ImageInput } from "./ImageInput";
+import { ShopTypeCombobox } from "./ShopTypeCombobox";
 import { TextField } from "./TextField";
 import { LocationPickerMap, type LatLng } from "./maps";
 
@@ -38,9 +39,7 @@ export function ShopForm({
   /** Where the map should move to: set by the address search, not by clicks. */
   const [mapFocus, setMapFocus] = useState<LatLng | null>(null);
   const postalCodeRef = useRef<HTMLInputElement>(null);
-  // Controlled: the options arrive after mount, and an uncontrolled defaultValue
-  // would not select the shop's type once they do.
-  const [shopTypeId, setShopTypeId] = useState(shop ? String(shop.shopType.id) : "");
+  const [shopTypeId, setShopTypeId] = useState<number | null>(shop ? shop.shopType.id : null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [image, setImage] = useState<File | null>(null);
@@ -57,6 +56,7 @@ export function ShopForm({
       Object.fromEntries(REVIEW_PLATFORMS.map((p) => [p.id, data.get(`reviewLinks[${p.id}]`)])),
     );
     if (!links.success) return setError(links.error.issues[0]!.message);
+    if (!shopTypeId) return setError("Selecciona un tipo de negocio");
     if (!location) return setError("Marca en el mapa dónde está el negocio");
     data.set("lat", String(location.lat));
     data.set("lng", String(location.lng));
@@ -102,23 +102,15 @@ export function ShopForm({
           </div>
           <div>
             <label className="label" htmlFor="shopTypeId">Tipo de negocio</label>
-            <select
+            <ShopTypeCombobox
               id="shopTypeId"
               name="shopTypeId"
-              className="input"
-              required
+              types={shopTypes}
               value={shopTypeId}
-              onChange={(e) => setShopTypeId(e.target.value)}
-            >
-              <option value="" disabled>
-                Selecciona…
-              </option>
-              {shopTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              onChange={setShopTypeId}
+              placeholder="Escribe o elige un tipo…"
+              required
+            />
           </div>
         </div>
         <fieldset className="space-y-2">

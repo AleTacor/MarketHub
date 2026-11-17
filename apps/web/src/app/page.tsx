@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { postalCodeSchema, type GeoPolygon, type ShopSearchPage, type ShopType } from "@markethub/shared";
 import { AreaSelectMap } from "@/components/maps";
 import { MobileFold } from "@/components/MobileFold";
+import { ShopTypeCombobox } from "@/components/ShopTypeCombobox";
 import { ShopCard } from "@/components/ShopCard";
 import { api, errorMessage } from "@/lib/api";
 import { useShopTypes } from "@/lib/hooks";
@@ -165,9 +166,8 @@ export default function SearchPage() {
     [name, shopTypeId, foldPanel, cancelFold],
   );
 
-  /** A select has no "submit" moment: the type applies to the current search at once. */
-  function handleTypeChange(value: string) {
-    const id = value ? Number(value) : null;
+  /** Picking a type has no "submit" moment: it applies to the current search at once. */
+  function handleTypeChange(id: number | null) {
     setShopTypeId(id);
     setSearch((s) => (s ? { ...s, shopTypeId: id } : s));
   }
@@ -233,14 +233,7 @@ export default function SearchPage() {
           </div>
           <div className="sm:w-52">
             <label className="label" htmlFor="type">Tipo de negocio</label>
-            <select id="type" className="input" value={shopTypeId ?? ""} onChange={(e) => handleTypeChange(e.target.value)}>
-              <option value="">Todos los tipos</option>
-              {shopTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            <ShopTypeCombobox id="type" types={shopTypes} value={shopTypeId} onChange={handleTypeChange} emptyLabel="Todos los tipos" />
           </div>
           <button className="btn btn-primary">Buscar</button>
         </form>

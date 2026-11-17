@@ -52,7 +52,8 @@ async function fillFields(user: ReturnType<typeof renderForm>["user"], { postalC
   await user.type(screen.getByLabelText("Nombre"), "Panadería Luna");
   await user.type(screen.getByLabelText("Descripción"), "Pan de masa madre");
   await user.type(screen.getByLabelText("Código postal"), postalCode);
-  await user.selectOptions(screen.getByLabelText("Tipo de negocio"), await screen.findByRole("option", { name: "Frutería" }));
+  await user.click(screen.getByRole("combobox", { name: "Tipo de negocio" }));
+  await user.click(await screen.findByRole("option", { name: "Frutería" }));
   await user.upload(screen.getByLabelText("Imagen del negocio"), image);
   await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
   skipNativeValidation(screen.getByLabelText("Nombre"));
@@ -62,20 +63,13 @@ const submit = () => screen.getByRole("button", { name: "Crear negocio" });
 const sent = (onSubmit: ReturnType<typeof renderForm>["onSubmit"]) => onSubmit.mock.calls[0]![0];
 
 describe("ShopForm — create", () => {
-  it("loads the shop types from the API", async () => {
-    renderForm();
-    expect(await screen.findByRole("option", { name: "Panadería y pastelería" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Frutería" })).toBeInTheDocument();
-  });
-
-  it("lists the types in the API's order after the placeholder, without Todos los tipos", async () => {
-    renderForm();
+  it("lists the types from the API in its order, without Todos los tipos", async () => {
+    const { user } = renderForm();
+    const type = screen.getByRole("combobox", { name: "Tipo de negocio" });
+    expect(type).toBeRequired();
+    await user.click(type);
     await screen.findByRole("option", { name: "Frutería" });
-    expect(within(screen.getByLabelText("Tipo de negocio")).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "Selecciona…",
-      "Panadería y pastelería",
-      "Frutería",
-    ]);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Panadería y pastelería", "Frutería"]);
   });
 
   it("sends every field, the location and the image as FormData", async () => {
@@ -271,7 +265,7 @@ describe("ShopForm — edit", () => {
     expect(screen.getByLabelText("Nombre")).toHaveValue("Frutería Sol");
     expect(screen.getByLabelText("Descripción")).toHaveValue("Fruta de temporada");
     expect(screen.getByLabelText("Código postal")).toHaveValue("28013");
-    await waitFor(() => expect(screen.getByLabelText("Tipo de negocio")).toHaveValue("2"));
+    await waitFor(() => expect(screen.getByLabelText("Tipo de negocio")).toHaveValue("Frutería"));
     expect(screen.getByTestId("location-map")).toHaveAttribute("data-value", "40.41,-3.71");
     expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "/uploads/sol.png");
     expect(screen.getByLabelText("Imagen del negocio")).not.toBeRequired();
@@ -283,7 +277,7 @@ describe("ShopForm — edit", () => {
 
   it("keeps the location and omits the image when it isn't changed", async () => {
     const { user, onSubmit } = renderForm({ shop: existing, submitLabel: "Guardar cambios" });
-    await screen.findByRole("option", { name: "Frutería" });
+    await waitFor(() => expect(screen.getByLabelText("Tipo de negocio")).toHaveValue("Frutería"));
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());

@@ -67,6 +67,11 @@ const expectResults = (n: number) =>
   waitFor(() => expect(within(screen.getByRole("list", { name: "Negocios encontrados" })).getAllByRole("link")).toHaveLength(n));
 const nameInput = () => screen.getByLabelText("Nombre del negocio");
 const searchButton = () => screen.getByRole("button", { name: "Buscar" });
+/** Opens the type combobox and clicks an option. */
+const chooseType = async (user: ReturnType<typeof renderWithClient>["user"], name: string) => {
+  await user.click(screen.getByRole("combobox", { name: "Tipo de negocio" }));
+  await user.click(await screen.findByRole("option", { name }));
+};
 const map = () => screen.getByTestId("map");
 /** Wrapper of the results section: hidden (animated) until something is searched. */
 const results = () => screen.getByRole("region", { name: "Resultados" }).closest<HTMLElement>("[data-shown]")!;
@@ -242,16 +247,16 @@ describe("search page", () => {
   });
 
   describe("type filter", () => {
-    const typeSelect = () => screen.getByLabelText("Tipo de negocio");
-    const chooseType = async (user: ReturnType<typeof renderWithClient>["user"], name: string) =>
-      user.selectOptions(typeSelect(), await screen.findByRole("option", { name }));
+    const typeInput = () => screen.getByRole("combobox", { name: "Tipo de negocio" });
 
     it("offers every type from the API, and all of them by default", async () => {
-      renderWithClient(<SearchPage />);
-      expect(await screen.findByRole("option", { name: "Frutería" })).toBeInTheDocument();
-      expect(typeSelect()).toHaveValue("");
+      const { user } = renderWithClient(<SearchPage />);
+      expect(typeInput()).toHaveValue("");
+      expect(typeInput()).toHaveAttribute("placeholder", "Todos los tipos");
+      await user.click(typeInput());
+      await screen.findByRole("option", { name: "Frutería" });
       // "Todos los tipos" first, then the types in the API's order (sorted there).
-      expect(within(typeSelect()).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
         "Todos los tipos",
         "Panadería y pastelería",
         "Frutería",
@@ -307,6 +312,20 @@ describe("search page", () => {
       await chooseType(user, "Frutería");
       await user.click(searchButton());
       expect(screen.getByText("Introduce un código postal, un nombre o dibuja una zona en el mapa")).toBeInTheDocument();
+    });
+
+    it("can be typed: picking a filtered type re-runs the search", async () => {
+      const { user } = renderWithClient(<SearchPage />);
+      await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(1));
+
+      await user.type(typeInput(), "panaderia");
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Panadería y pastelería"]);
+      await user.keyboard("{Enter}");
+
+      await waitFor(() => expect(areaCalls.calls).toHaveLength(2));
+      expect(areaCalls.calls[1]!.body).toEqual({ area: AREA, shopTypeId: 1 });
+      expect(typeInput()).toHaveValue("Panadería y pastelería");
     });
 
     it("isn't saved with the search", async () => {
@@ -694,8 +713,7 @@ describe("search panel on mobile", () => {
 
   it("names the chosen type in the summary", async () => {
     const { user } = renderWithClient(<SearchPage />);
-    await screen.findByRole("option", { name: "Frutería" });
-    await user.selectOptions(screen.getByLabelText("Tipo de negocio"), "Frutería");
+    await chooseType(user, "Frutería");
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
     expect(screen.getByText("Código postal 28001 · Frutería")).toBeInTheDocument();

@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+
+/** Matches the duration-300 transitions below, plus a margin. */
+const UNFOLD_MS = 350;
 
 /**
  * Below `lg`, folds its content away with an animation: the content slides up (as if
@@ -9,6 +12,9 @@ import type { ReactNode } from "react";
  *
  * Content stays mounted (a map keeps its drawn area and view) and keeps its size, so
  * Leaflet doesn't need to re-measure.
+ *
+ * It only clips its content while folded or unfolding: once open, popups inside it (the
+ * type combobox's list) can extend past its bottom edge.
  */
 export function MobileFold({
   id,
@@ -28,6 +34,16 @@ export function MobileFold({
   innerClassName?: string;
   children: ReactNode;
 }) {
+  // Unfolding: keep clipping until the content has slid back in.
+  const [unfolding, setUnfolding] = useState(false);
+  useEffect(() => {
+    if (collapsed || !animated) return setUnfolding(false);
+    setUnfolding(true);
+    const timer = setTimeout(() => setUnfolding(false), UNFOLD_MS);
+    return () => clearTimeout(timer);
+  }, [collapsed, animated]);
+  const clip = collapsed || unfolding;
+
   return (
     <div
       id={id}
@@ -37,7 +53,7 @@ export function MobileFold({
         collapsed ? "max-lg:invisible max-lg:grid-rows-[0fr]" : "grid-rows-[1fr]"
       } ${className}`}
     >
-      <div className="min-h-0 max-lg:overflow-hidden">
+      <div className={`min-h-0 ${clip ? "max-lg:overflow-hidden" : ""}`}>
         <div
           className={`h-full ${animated ? "transition duration-300 ease-in-out motion-reduce:transition-none" : ""} ${
             collapsed ? "max-lg:-translate-y-full max-lg:opacity-0" : ""
