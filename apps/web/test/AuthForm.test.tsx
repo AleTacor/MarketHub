@@ -24,7 +24,6 @@ beforeEach(() => {
   calls = recorder();
 });
 
-const cliente: User = { id: 1, name: "Lucía", role: "cliente" };
 const empresario: User = { id: 2, name: "Pepe", role: "empresario" };
 
 async function fillAndSubmit(user: ReturnType<typeof renderWithClient>["user"], name: string, password: string, button: string) {
@@ -34,23 +33,16 @@ async function fillAndSubmit(user: ReturnType<typeof renderWithClient>["user"], 
 }
 
 describe("AuthForm — login", () => {
-  it("logs in, caches the user and sends a cliente to the search page", async () => {
-    respondWith(cliente);
+  it("logs in, caches the user and goes to their shops", async () => {
+    respondWith(empresario);
     const { user, client } = renderWithClient(<AuthForm mode="login" />);
 
-    await fillAndSubmit(user, "Lucía", "secreto123", "Entrar");
-
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/"));
-    expect(calls.calls[0]!.url.pathname).toBe("/api/auth/login");
-    expect(calls.calls[0]!.body).toEqual({ name: "Lucía", password: "secreto123" });
-    expect(client.getQueryData(queryKeys.me)).toEqual(cliente);
-  });
-
-  it("sends an empresario to their shops", async () => {
-    respondWith(empresario);
-    const { user } = renderWithClient(<AuthForm mode="login" />);
     await fillAndSubmit(user, "Pepe", "secreto123", "Entrar");
+
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas"));
+    expect(calls.calls[0]!.url.pathname).toBe("/api/auth/login");
+    expect(calls.calls[0]!.body).toEqual({ name: "Pepe", password: "secreto123" });
+    expect(client.getQueryData(queryKeys.me)).toEqual(empresario);
   });
 
   it("returns to the page in ?next= after login", async () => {
@@ -63,10 +55,10 @@ describe("AuthForm — login", () => {
 
   it("ignores a ?next= pointing to another site", async () => {
     setLocation("/login?next=//evil.example.com");
-    respondWith(cliente);
+    respondWith(empresario);
     const { user } = renderWithClient(<AuthForm mode="login" />);
-    await fillAndSubmit(user, "Lucía", "secreto123", "Entrar");
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/"));
+    await fillAndSubmit(user, "Pepe", "secreto123", "Entrar");
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas"));
   });
 
   it("shows the backend error and lets the user retry", async () => {
@@ -88,7 +80,7 @@ describe("AuthForm — login", () => {
     server.use(
       http.post("/api/auth/login", async () => {
         await delay(100);
-        return HttpResponse.json({ user: cliente });
+        return HttpResponse.json({ user: empresario });
       }),
     );
     const { user } = renderWithClient(<AuthForm mode="login" />);
@@ -105,26 +97,16 @@ describe("AuthForm — login", () => {
 });
 
 describe("AuthForm — register", () => {
-  it("registers as cliente by default", async () => {
-    respondWith(cliente);
-    const { user } = renderWithClient(<AuthForm mode="register" />);
-
-    expect(screen.getByRole("radio", { name: "Cliente" })).toBeChecked();
-    await fillAndSubmit(user, "Lucía", "secreto123", "Registrarme");
-
-    await waitFor(() => expect(calls.calls).toHaveLength(1));
-    expect(calls.calls[0]!.url.pathname).toBe("/api/auth/register");
-    expect(calls.calls[0]!.body).toEqual({ name: "Lucía", password: "secreto123", role: "cliente" });
-  });
-
-  it("sends the empresario role when selected", async () => {
+  it("registers a business account (no account type to choose) and goes to their shops", async () => {
     respondWith(empresario);
     const { user } = renderWithClient(<AuthForm mode="register" />);
-    await user.click(screen.getByRole("radio", { name: "Empresario" }));
+
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     await fillAndSubmit(user, "Pepe", "secreto123", "Registrarme");
 
-    await waitFor(() => expect(calls.calls[0]?.body).toMatchObject({ role: "empresario" }));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas"));
+    expect(calls.calls[0]!.url.pathname).toBe("/api/auth/register");
+    expect(calls.calls[0]!.body).toEqual({ name: "Pepe", password: "secreto123" });
   });
 
   it.each([

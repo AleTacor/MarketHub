@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { ROLE_LABELS } from "@markethub/shared";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/hooks";
 import { ThemeToggle } from "./ThemeToggle";
@@ -65,13 +64,13 @@ export function Header() {
   const navLinks = (mobile = false) => (
     <>
       {navLink("/", "Buscar tiendas", mobile)}
-      {me?.role === "empresario" && navLink("/mis-tiendas", "Mis tiendas", mobile)}
+      {me && navLink("/mis-tiendas", "Mis tiendas", mobile)}
     </>
   );
 
   const userLabel = me && (
     <>
-      <span className="break-anywhere">{me.name}</span> · <span className="text-fg-subtle">{ROLE_LABELS[me.role]}</span>
+      <span className="break-anywhere">{me.name}</span>
     </>
   );
 

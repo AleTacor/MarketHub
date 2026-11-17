@@ -3,13 +3,12 @@ export const AUTH_COOKIE = "mh_token";
 /** `iss` claim of tokens issued by auth-service. */
 export const JWT_ISSUER = "markethub-auth";
 
-export const ROLES = ["empresario", "cliente"] as const;
+/**
+ * Account roles. Only business owners have accounts (customers browse without one),
+ * so there is a single role; it stays in tokens so shop-service can keep checking it.
+ */
+export const ROLES = ["empresario"] as const;
 export type Role = (typeof ROLES)[number];
-
-export const ROLE_LABELS: Record<Role, string> = {
-  empresario: "Empresario",
-  cliente: "Cliente",
-};
 
 /** Length limits of shop and product texts (schemas and form counters). */
 export const NAME_MAX_LENGTH = 100;

@@ -16,7 +16,7 @@ import { formatPrice } from "@/lib/price";
 
 export default function ManageShopPage() {
   const { id } = useParams<{ id: string }>();
-  return <RequireUser role="empresario">{(user) => <ManageShop id={Number(id)} userId={user.id} />}</RequireUser>;
+  return <RequireUser>{(user) => <ManageShop id={Number(id)} userId={user.id} />}</RequireUser>;
 }
 
 function ManageShop({ id, userId }: { id: number; userId: number }) {

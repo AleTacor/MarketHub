@@ -26,18 +26,13 @@ describe("session verification", () => {
     expect(res.body.error).toBe("No has iniciado sesión");
   });
 
-  it("returns 403 for a cliente", async () => {
-    const res = await mine(await ctx.cookie(1, "cliente")).expect(403);
-    expect(res.body.error).toBe("No tienes permiso para realizar esta acción");
-    expect(ctx.repo.searchShops).not.toHaveBeenCalled();
-  });
-
   it.each([
     ["garbage", async () => "not-a-jwt"],
     ["expired", async () => ctx.sign({ role: "empresario" }, { expiresIn: Math.floor(Date.now() / 1000) - 10 })],
     ["wrong issuer", async () => ctx.sign({ role: "empresario" }, { issuer: "someone-else" })],
     ["signed with another key", async () => ctx.sign({ role: "empresario" }, { key: (await generateKeyPair("RS256")).privateKey })],
     ["unknown role", async () => ctx.sign({ role: "admin" })],
+    ["the removed cliente role", async () => ctx.sign({ role: "cliente" })],
   ])("rejects a %s token with 401", async (_label, makeToken) => {
     const res = await mine(`${AUTH_COOKIE}=${await makeToken()}`).expect(401);
     expect(res.body.error).toBe("Sesión no válida o caducada");

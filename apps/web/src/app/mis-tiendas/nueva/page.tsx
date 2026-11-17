@@ -14,7 +14,7 @@ export default function NewShopPage() {
   const qc = useQueryClient();
 
   return (
-    <RequireUser role="empresario">
+    <RequireUser>
       {() => (
         <div className="space-y-6">
           <Link href="/mis-tiendas" className="text-sm text-accent hover:underline">

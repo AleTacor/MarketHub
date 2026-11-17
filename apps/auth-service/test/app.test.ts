@@ -22,7 +22,7 @@ beforeEach(() => {
 
 const register = (body: object) => request(app).post("/api/auth/register").send(body);
 const login = (body: object) => request(app).post("/api/auth/login").send(body);
-const pepe = { name: "Pepe", password: "secreto123", role: "empresario" };
+const pepe = { name: "Pepe", password: "secreto123" };
 
 describe("POST /api/auth/register", () => {
   it("creates the user, returns it and sets an httpOnly session cookie", async () => {
@@ -33,6 +33,12 @@ describe("POST /api/auth/register", () => {
     expect(cookie).toMatch(/^mh_token=/);
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=Lax/i);
+  });
+
+  it("always creates an empresario, even if another role is sent", async () => {
+    const res = await register({ ...pepe, role: "admin" }).expect(201);
+    expect(res.body.user.role).toBe("empresario");
+    expect(users.rows[0]!.role).toBe("empresario");
   });
 
   it("stores a bcrypt hash, never the plain password", async () => {
@@ -56,7 +62,6 @@ describe("POST /api/auth/register", () => {
   it.each([
     [{ ...pepe, name: "ab" }, "El nombre debe tener al menos 3 caracteres"],
     [{ ...pepe, password: "corta" }, "La contraseña debe tener al menos 8 caracteres"],
-    [{ ...pepe, role: "admin" }, "Selecciona un tipo de usuario"],
     [{ name: "Pepe" }, undefined],
   ])("validates the body %#", async (body, message) => {
     const res = await register(body).expect(400);

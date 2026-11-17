@@ -35,22 +35,12 @@ describe("Header", () => {
     expect(screen.queryByRole("button", { name: "Cerrar sesión" })).not.toBeInTheDocument();
   });
 
-  it("shows a cliente's name and role, without the business area", async () => {
-    as({ id: 1, name: "Lucía", role: "cliente" });
-    renderWithClient(<Header />);
-
-    expect(await screen.findByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
-    expect(screen.getByText(/Lucía/)).toBeInTheDocument();
-    expect(screen.getByText("Cliente")).toBeInTheDocument();
-    expect(link("Mis tiendas")).not.toBeInTheDocument();
-    expect(link("Iniciar sesión")).not.toBeInTheDocument();
-  });
-
-  it("links an empresario to their shops", async () => {
+  it("shows the user's name and links to their shops", async () => {
     as({ id: 2, name: "Pepe", role: "empresario" });
     renderWithClient(<Header />);
     expect(await screen.findByRole("link", { name: "Mis tiendas" })).toHaveAttribute("href", "/mis-tiendas");
-    expect(screen.getByText("Empresario")).toBeInTheDocument();
+    expect(screen.getByText("Pepe")).toBeInTheDocument();
+    expect(link("Iniciar sesión")).not.toBeInTheDocument();
   });
 
   it("marks the current page in the navigation", async () => {
@@ -75,7 +65,7 @@ describe("Header", () => {
 
   it("logs out: calls the API, forgets cached data and goes to the search page", async () => {
     const logout = recorder();
-    as({ id: 1, name: "Lucía", role: "cliente" });
+    as({ id: 1, name: "Lucía", role: "empresario" });
     server.use(
       http.post("/api/auth/logout", async ({ request }) => {
         await logout.record(request);

@@ -12,9 +12,9 @@ describe("postalCodeSchema", () => {
 });
 
 describe("registerSchema", () => {
-  it("requires a known role", () => {
-    expect(registerSchema.safeParse({ name: "pepe", password: "12345678", role: "admin" }).success).toBe(false);
-    expect(registerSchema.safeParse({ name: "pepe", password: "12345678", role: "cliente" }).success).toBe(true);
+  it("takes no role (only empresarios register) and drops one if sent", () => {
+    const parsed = registerSchema.safeParse({ name: "pepe", password: "12345678", role: "admin" });
+    expect(parsed.success && parsed.data).toEqual({ name: "pepe", password: "12345678" });
   });
 });
 

@@ -34,12 +34,6 @@ describe("GET /api/geocode", () => {
     await request(ctx.app).get("/api/geocode").query({ q: "Calle Mayor" }).expect(401);
     expect(ctx.geocoder.search).not.toHaveBeenCalled();
   });
-
-  it("is only for empresarios", async () => {
-    const cliente = await ctx.cookie(3, "cliente");
-    await request(ctx.app).get("/api/geocode").query({ q: "Calle Mayor" }).set("Cookie", cliente).expect(403);
-    expect(ctx.geocoder.search).not.toHaveBeenCalled();
-  });
 });
 
 describe("query parsing", () => {

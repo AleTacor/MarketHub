@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DESCRIPTION_MAX_LENGTH, MAX_PHONES, MAX_PRICE_EUROS, NAME_MAX_LENGTH, REVIEW_PLATFORMS, REVIEW_URL_MAX_LENGTH, ROLES, type ReviewPlatform } from "./constants";
+import { DESCRIPTION_MAX_LENGTH, MAX_PHONES, MAX_PRICE_EUROS, NAME_MAX_LENGTH, REVIEW_PLATFORMS, REVIEW_URL_MAX_LENGTH, type ReviewPlatform } from "./constants";
 
 /** Spanish postal code: 5 digits, province prefix 01–52. */
 export const postalCodeSchema = z
@@ -19,7 +19,8 @@ export const registerSchema = z.object({
     .string()
     .min(8, "La contraseña debe tener al menos 8 caracteres")
     .max(128, "La contraseña no puede superar los 128 caracteres"),
-  role: z.enum(ROLES, { errorMap: () => ({ message: "Selecciona un tipo de usuario" }) }),
+  // No role: only business owners register (customers browse without an account),
+  // so auth-service always creates an empresario. An extra `role` field is ignored.
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

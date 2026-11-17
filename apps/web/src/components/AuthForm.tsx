@@ -4,9 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { loginSchema, registerSchema, ROLE_LABELS, ROLES, type User } from "@markethub/shared";
+import { loginSchema, registerSchema, type User } from "@markethub/shared";
 import { api, errorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/hooks";
+
+/**
+ * Accounts are only for business owners: customers browse without one.
+ */
 
 /**
  * Only same-site paths. "//evil.com" and "/\evil.com" start with "/" but browsers
@@ -37,7 +41,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       });
       qc.setQueryData(queryKeys.me, user);
       const next = params.get("next");
-      router.replace(isSafeRedirect(next) ? next : user.role === "empresario" ? "/mis-tiendas" : "/");
+      router.replace(isSafeRedirect(next) ? next : "/mis-tiendas");
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -50,7 +54,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       <div className="card p-6">
         <h1 className="mb-1 text-xl font-semibold">{isRegister ? "Crear cuenta" : "Iniciar sesión"}</h1>
         <p className="mb-5 text-sm text-fg-subtle">
-          {isRegister ? "Solo necesitas un nombre de usuario y una contraseña." : "Accede a tu cuenta."}
+          {isRegister
+            ? "Para comercios: publica tu tienda y sus productos. Solo necesitas un nombre de usuario y una contraseña."
+            : "Accede para gestionar tus tiendas."}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -68,23 +74,6 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               required
             />
           </div>
-          {isRegister && (
-            <fieldset>
-              <legend className="label">Tipo de cuenta</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {ROLES.map((role) => (
-                  <label
-                    key={role}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-line-strong px-3 py-2 text-sm has-[:checked]:border-brand-500 has-[:checked]:bg-accent-soft"
-                  >
-                    <input type="radio" name="role" value={role} defaultChecked={role === "cliente"} />
-                    {ROLE_LABELS[role]}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-fg-subtle">Los empresarios pueden crear tiendas y también comprar.</p>
-            </fieldset>
-          )}
           {error && <p className="error-box">{error}</p>}
           <button className="btn btn-primary w-full" disabled={pending}>
             {pending ? "Un momento…" : isRegister ? "Registrarme" : "Entrar"}

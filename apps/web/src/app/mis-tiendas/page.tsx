@@ -9,7 +9,7 @@ import { api, errorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/hooks";
 
 export default function MyShopsPage() {
-  return <RequireUser role="empresario">{() => <MyShops />}</RequireUser>;
+  return <RequireUser>{() => <MyShops />}</RequireUser>;
 }
 
 function MyShops() {

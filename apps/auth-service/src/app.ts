@@ -61,7 +61,8 @@ export function createApp({ users, keys }: { users: UsersRepository; keys: Signi
     const passwordHash = await bcrypt.hash(input.password, config.BCRYPT_ROUNDS);
     let row: UserRow;
     try {
-      row = await users.create({ name: input.name, role: input.role, passwordHash });
+      // Only business owners have accounts.
+      row = await users.create({ name: input.name, role: "empresario", passwordHash });
     } catch (err) {
       if (err instanceof DuplicateUserError) throw new HttpError(409, "Ese nombre de usuario ya está registrado");
       throw err;

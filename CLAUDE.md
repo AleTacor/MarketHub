@@ -1,9 +1,9 @@
 # MarketHub
 
-Marketplace for local shops in Spain. Two user roles:
+Marketplace for local shops in Spain. Two kinds of users:
 
-- **cliente**: searches shops by postal code, by name, or by drawing an area on a map; views a shop's location and products. **No account needed**: browsing (`/`, `/tiendas/[id]`) is public, and customers can optionally register.
-- **empresario**: everything a cliente can do, plus creating/editing shops and managing their products and stock.
+- **Customers** search shops by postal code, by name, or by drawing an area on a map, and view a shop's location and products. **They have no accounts**: browsing (`/`, `/tiendas/[id]`) is public.
+- **empresario** (the only account type): everything a customer can do, plus creating/editing shops and managing their products and stock. Registering always creates an empresario (`registerSchema` has no role). `ROLES` is just `["empresario"]`; the role stays in the JWT and `User`, and shop-service rejects tokens with any other role (401).
 
 **All user-facing text is in Spanish** (UI copy, API error messages, validation messages). Code, comments, and docs are in English.
 
@@ -41,7 +41,7 @@ Backends mount their routes **with the full `/api/...` prefix**. nginx does not 
 - It publishes the public key at `/api/auth/.well-known/jwks.json`. shop-service verifies tokens with `createRemoteJWKSet` (`apps/shop-service/src/auth.ts`). shop-service never sees the private key and never calls auth-service per request.
 - The private key comes from `JWT_PRIVATE_KEY`. If that is unset, it is generated once and persisted in `KEYS_DIR` (the `jwt-keys` docker volume).
 - Usernames are unique case-insensitively (`lower(name)` unique index).
-- Only the business area (`/mis-tiendas/*`) needs an account. `apps/web/src/middleware.ts` matches just that path and only checks that the cookie *exists*, to redirect to `/login?next=...`. Real verification happens in the backends. Those pages also wrap content in `<RequireUser role="empresario">`, which loads `/api/auth/me`. Public pages call `useMe()` only to adapt the UI (header buttons, the "Gestionar" link for owners), so for anonymous visitors `/me` returning 401 is expected.
+- Only the business area (`/mis-tiendas/*`) needs an account. `apps/web/src/middleware.ts` matches just that path and only checks that the cookie *exists*, to redirect to `/login?next=...`. Real verification happens in the backends. Those pages also wrap content in `<RequireUser>`, which loads `/api/auth/me`. Public pages call `useMe()` only to adapt the UI (header buttons, the "Gestionar" link for owners), so for anonymous visitors `/me` returning 401 is expected.
 - shop-service read endpoints (`GET /api/shops*`, `search-area`, `shop-types`) are public. Only write endpoints require auth.
 
 ### Geo / search
@@ -74,7 +74,7 @@ Backends mount their routes **with the full `/api/...` prefix**. nginx does not 
 | DELETE | `/api/products/:id` | owner | |
 | GET | `/api/geocode?q=` | empresario | address → `{ results: [{ label, lat, lng, postalCode }] }`, Spain only |
 
-auth-service: `POST /api/auth/register {name,password,role}`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/.well-known/jwks.json`. Both services also expose `GET /health`.
+auth-service: `POST /api/auth/register {name,password}` (always an empresario), `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/.well-known/jwks.json`. Both services also expose `GET /health`.
 
 Errors are always `{ "error": "<Spanish message>" }`. Throw `HttpError(status, msg)` from handlers. Express 5 forwards async errors, so no try/catch wrappers are needed. `ZodError` and `MulterError` are mapped to 400 in `src/errors.ts`.
 
@@ -139,7 +139,7 @@ Vitest everywhere. Tests live in `apps/<app>/test/` (schemas: `packages/shared/s
   - shop-service: `createApp({ repo, getKey, geocoder })`. `repo` is the `Repository` (`src/repository.ts`), and tests use `fakeRepo()`, where every method is a `vi.fn` with empty-DB defaults. `getKey` is the JWT key source: production uses `remoteKeys()` (auth-service JWKS), and tests use `createIssuer()`, a local RS256 key pair that also signs test tokens (`ctx.cookie(userId, role)`). `geocoder` is a `Geocoder` (`src/geocoder.ts`); tests get `ctx.geocoder.search` as a `vi.fn`, and `nominatimGeocoder` is tested with an injected `fetchFn`.
 - `test/setup.ts` points `UPLOAD_DIR` / `KEYS_DIR` at fresh temp dirs before `config.ts` is imported. `config` reads env at import time, so tests that need different env use `vi.resetModules()` and a dynamic import (see `auth-service/test/keys.test.ts`).
 - auth-service tests run with `BCRYPT_ROUNDS=4` (vitest.config.ts) to stay fast.
-- Each new route needs tests for: the happy path, validation (400 with the Spanish message), 401 without a session, 403 for the wrong role or owner, and 404 when the resource is missing. Assert that the repo is **not** called when a request is rejected.
+- Each new route needs tests for: the happy path, validation (400 with the Spanish message), 401 without a session, 403 for the wrong owner, and 404 when the resource is missing. Assert that the repo is **not** called when a request is rejected.
 
 ### Frontend (React Testing Library + MSW)
 

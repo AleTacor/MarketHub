@@ -270,11 +270,6 @@ describe("POST /api/shops", () => {
     expect(res.body.error).toBe("Puedes añadir hasta 3 teléfonos");
     expect(ctx.repo.createShop).not.toHaveBeenCalled();
   });
-
-  it("is only for empresarios", async () => {
-    await create(await ctx.cookie(1, "cliente")).expect(403);
-    expect(ctx.repo.createShop).not.toHaveBeenCalled();
-  });
 });
 
 describe("PUT /api/shops/:id", () => {
