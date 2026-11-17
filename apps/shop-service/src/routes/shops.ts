@@ -11,8 +11,8 @@ export const idParam = z.coerce.number({ invalid_type_error: "Identificador no v
 /** Loads the shop and checks that the current user owns it. */
 export async function assertShopOwner(repo: Repository, req: Request, shopId: number) {
   const shop = await repo.getShopOwner(shopId);
-  if (!shop) throw new HttpError(404, "Tienda no encontrada");
-  if (shop.ownerId !== req.user!.id) throw new HttpError(403, "Esta tienda no es tuya");
+  if (!shop) throw new HttpError(404, "Negocio no encontrado");
+  if (shop.ownerId !== req.user!.id) throw new HttpError(403, "Este negocio no es tuyo");
   return shop;
 }
 
@@ -64,14 +64,14 @@ export function shopsRouter(repo: Repository, { requireBusiness }: Auth) {
 
   r.get("/shops/:id", async (req, res) => {
     const shop = await repo.getShop(idParam.parse(req.params.id));
-    if (!shop) throw new HttpError(404, "Tienda no encontrada");
+    if (!shop) throw new HttpError(404, "Negocio no encontrado");
     res.json(shop);
   });
 
   r.post("/shops", ...requireBusiness, imageUpload, async (req, res) => {
     const input = shopInputSchema.parse(req.body);
-    if (!req.file) throw new HttpError(400, "La imagen de la tienda es obligatoria");
-    if (!(await repo.shopTypeExists(input.shopTypeId))) throw new HttpError(400, "El tipo de tienda no existe");
+    if (!req.file) throw new HttpError(400, "La imagen del negocio es obligatoria");
+    if (!(await repo.shopTypeExists(input.shopTypeId))) throw new HttpError(400, "El tipo de negocio no existe");
     const imageUrl = await saveImage(req.file);
     const id = await repo.createShop(req.user!.id, input, imageUrl);
     res.status(201).json(await repo.getShop(id));
@@ -81,7 +81,7 @@ export function shopsRouter(repo: Repository, { requireBusiness }: Auth) {
     const id = idParam.parse(req.params.id);
     const current = await assertShopOwner(repo, req, id);
     const input = shopInputSchema.parse(req.body);
-    if (!(await repo.shopTypeExists(input.shopTypeId))) throw new HttpError(400, "El tipo de tienda no existe");
+    if (!(await repo.shopTypeExists(input.shopTypeId))) throw new HttpError(400, "El tipo de negocio no existe");
     const imageUrl = req.file ? await saveImage(req.file) : undefined;
     await repo.updateShop(id, input, imageUrl);
     if (imageUrl) await deleteImage(current.imageUrl);

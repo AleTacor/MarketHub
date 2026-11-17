@@ -63,7 +63,7 @@ export function AddressSearch({ onPick }: { onPick: (result: GeocodeResult) => v
         <p role="status" className="text-sm text-fg-muted">
           {picked.exact
             ? `Ubicación marcada en ${picked.label}.`
-            : `No hemos encontrado el número exacto: hemos marcado ${picked.label}. Haz clic en el mapa en el punto exacto de la tienda.`}
+            : `No hemos encontrado el número exacto: hemos marcado ${picked.label}. Haz clic en el mapa en el punto exacto del negocio.`}
         </p>
       )}
       {results?.length === 0 && (

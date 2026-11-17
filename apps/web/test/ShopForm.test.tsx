@@ -43,7 +43,7 @@ const image = new File(["png-bytes"], "tienda.png", { type: "image/png" });
 
 function renderForm(props: Partial<Parameters<typeof ShopForm>[0]> = {}) {
   const onSubmit = vi.fn<(data: FormData) => Promise<unknown>>().mockResolvedValue(undefined);
-  const result = renderWithClient(<ShopForm submitLabel="Crear tienda" onSubmit={onSubmit} {...props} />);
+  const result = renderWithClient(<ShopForm submitLabel="Crear negocio" onSubmit={onSubmit} {...props} />);
   return { ...result, onSubmit: (props.onSubmit as typeof onSubmit | undefined) ?? onSubmit };
 }
 
@@ -52,13 +52,13 @@ async function fillFields(user: ReturnType<typeof renderForm>["user"], { postalC
   await user.type(screen.getByLabelText("Nombre"), "Panadería Luna");
   await user.type(screen.getByLabelText("Descripción"), "Pan de masa madre");
   await user.type(screen.getByLabelText("Código postal"), postalCode);
-  await user.selectOptions(screen.getByLabelText("Tipo de tienda"), await screen.findByRole("option", { name: "Frutería" }));
-  await user.upload(screen.getByLabelText("Imagen de la tienda"), image);
+  await user.selectOptions(screen.getByLabelText("Tipo de negocio"), await screen.findByRole("option", { name: "Frutería" }));
+  await user.upload(screen.getByLabelText("Imagen del negocio"), image);
   await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
   skipNativeValidation(screen.getByLabelText("Nombre"));
 }
 
-const submit = () => screen.getByRole("button", { name: "Crear tienda" });
+const submit = () => screen.getByRole("button", { name: "Crear negocio" });
 const sent = (onSubmit: ReturnType<typeof renderForm>["onSubmit"]) => onSubmit.mock.calls[0]![0];
 
 describe("ShopForm — create", () => {
@@ -71,7 +71,7 @@ describe("ShopForm — create", () => {
   it("lists the types in the API's order after the placeholder, without Todos los tipos", async () => {
     renderForm();
     await screen.findByRole("option", { name: "Frutería" });
-    expect(within(screen.getByLabelText("Tipo de tienda")).getAllByRole("option").map((o) => o.textContent)).toEqual([
+    expect(within(screen.getByLabelText("Tipo de negocio")).getAllByRole("option").map((o) => o.textContent)).toEqual([
       "Selecciona…",
       "Panadería y pastelería",
       "Frutería",
@@ -103,7 +103,7 @@ describe("ShopForm — create", () => {
     await fillFields(user);
     await user.click(submit());
 
-    expect(screen.getByText("Marca en el mapa dónde está la tienda")).toBeInTheDocument();
+    expect(screen.getByText("Marca en el mapa dónde está el negocio")).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -126,12 +126,12 @@ describe("ShopForm — create", () => {
 
   it("requires an image when creating", () => {
     renderForm();
-    expect(screen.getByLabelText("Imagen de la tienda")).toBeRequired();
+    expect(screen.getByLabelText("Imagen del negocio")).toBeRequired();
   });
 
   it("asks to crop the selected image to the shop ratio (16:9) and previews the crop", async () => {
     const { user } = renderForm();
-    await user.upload(screen.getByLabelText("Imagen de la tienda"), image);
+    await user.upload(screen.getByLabelText("Imagen del negocio"), image);
 
     expect(screen.getByRole("dialog", { name: "Recortar imagen" })).toHaveAttribute("data-aspect", String(16 / 9));
     expect(screen.queryByRole("img", { name: "Vista previa" })).not.toBeInTheDocument();
@@ -143,7 +143,7 @@ describe("ShopForm — create", () => {
 
   it("lets the crop be adjusted again", async () => {
     const { user } = renderForm();
-    await user.upload(screen.getByLabelText("Imagen de la tienda"), image);
+    await user.upload(screen.getByLabelText("Imagen del negocio"), image);
     await user.click(screen.getByRole("button", { name: "Aplicar recorte" }));
 
     await user.click(screen.getByRole("button", { name: "Ajustar recorte" }));
@@ -152,7 +152,7 @@ describe("ShopForm — create", () => {
 
   it("drops the pick when the crop is cancelled", async () => {
     const { user } = renderForm();
-    const field = screen.getByLabelText<HTMLInputElement>("Imagen de la tienda");
+    const field = screen.getByLabelText<HTMLInputElement>("Imagen del negocio");
     await user.upload(field, image);
     await user.click(screen.getByRole("button", { name: "Cancelar recorte" }));
 
@@ -162,13 +162,13 @@ describe("ShopForm — create", () => {
   });
 
   it("shows the backend error and re-enables the button", async () => {
-    const onSubmit = vi.fn().mockRejectedValue(new Error("El tipo de tienda no existe"));
+    const onSubmit = vi.fn().mockRejectedValue(new Error("El tipo de negocio no existe"));
     const { user } = renderForm({ onSubmit });
     await fillFields(user);
     await user.click(screen.getByRole("button", { name: "Marcar ubicación" }));
     await user.click(submit());
 
-    expect(await screen.findByText("El tipo de tienda no existe")).toBeInTheDocument();
+    expect(await screen.findByText("El tipo de negocio no existe")).toBeInTheDocument();
     expect(submit()).toBeEnabled();
   });
 
@@ -271,10 +271,10 @@ describe("ShopForm — edit", () => {
     expect(screen.getByLabelText("Nombre")).toHaveValue("Frutería Sol");
     expect(screen.getByLabelText("Descripción")).toHaveValue("Fruta de temporada");
     expect(screen.getByLabelText("Código postal")).toHaveValue("28013");
-    await waitFor(() => expect(screen.getByLabelText("Tipo de tienda")).toHaveValue("2"));
+    await waitFor(() => expect(screen.getByLabelText("Tipo de negocio")).toHaveValue("2"));
     expect(screen.getByTestId("location-map")).toHaveAttribute("data-value", "40.41,-3.71");
     expect(screen.getByRole("img", { name: "Vista previa" })).toHaveAttribute("src", "/uploads/sol.png");
-    expect(screen.getByLabelText("Imagen de la tienda")).not.toBeRequired();
+    expect(screen.getByLabelText("Imagen del negocio")).not.toBeRequired();
     expect(screen.getByLabelText("Google Maps")).toHaveValue("https://maps.app.goo.gl/Sol");
     expect(screen.getByLabelText("Tripadvisor")).toHaveValue("");
     expect(screen.getByLabelText("Teléfono 1")).toHaveValue("912 345 678");
@@ -340,7 +340,7 @@ describe("ShopForm — address search", () => {
     await user.click(findButton());
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "No hemos encontrado el número exacto: hemos marcado Avenida del Papa Negro, Madrid. Haz clic en el mapa en el punto exacto de la tienda.",
+      "No hemos encontrado el número exacto: hemos marcado Avenida del Papa Negro, Madrid. Haz clic en el mapa en el punto exacto del negocio.",
     );
     expect(map()).toHaveAttribute("data-value", "40.4532,-3.6312");
   });

@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ShopPage from "@/app/tiendas/[id]/page";
+import ShopPage from "@/app/negocios/[id]/page";
 import { server } from "./msw";
 import { navigationMock } from "./navigation";
 import { renderWithClient, shopDetail } from "./render";
@@ -86,7 +86,7 @@ describe("ShopPage — products section", () => {
     showShop({ products: [] });
     await screen.findByRole("heading", { name: "Panadería Luna" });
     expect(screen.queryByRole("heading", { name: /^Productos/ })).not.toBeInTheDocument();
-    expect(screen.queryByText("Esta tienda todavía no tiene productos.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Este negocio todavía no tiene productos.")).not.toBeInTheDocument();
   });
 
   it("lists the products with their count", async () => {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ShopSummary } from "@markethub/shared";
 import { SHOP_IMAGE } from "@/lib/images";
 
-export function ShopCard({ shop, href = `/tiendas/${shop.id}` }: { shop: ShopSummary; href?: string }) {
+export function ShopCard({ shop, href = `/negocios/${shop.id}` }: { shop: ShopSummary; href?: string }) {
   return (
     <Link href={href} className="card flex gap-4 overflow-hidden p-3 transition duration-200 hover:-translate-y-0.5 hover:border-brand-500/60 hover:shadow-lift motion-reduce:hover:translate-y-0">
       {/* eslint-disable-next-line @next/next/no-img-element */}

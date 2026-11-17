@@ -63,8 +63,8 @@ export function Header() {
 
   const navLinks = (mobile = false) => (
     <>
-      {navLink("/", "Buscar tiendas", mobile)}
-      {me && navLink("/mis-tiendas", "Mis tiendas", mobile)}
+      {navLink("/", "Buscar negocios", mobile)}
+      {me && navLink("/mis-negocios", "Mis negocios", mobile)}
     </>
   );
 

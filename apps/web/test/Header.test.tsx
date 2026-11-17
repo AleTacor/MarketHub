@@ -21,8 +21,8 @@ describe("Header", () => {
 
     expect(await screen.findByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/login");
     expect(link("Crear cuenta")).toHaveAttribute("href", "/registro");
-    expect(link("Buscar tiendas")).toBeInTheDocument();
-    expect(link("Mis tiendas")).not.toBeInTheDocument();
+    expect(link("Buscar negocios")).toBeInTheDocument();
+    expect(link("Mis negocios")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cerrar sesión" })).not.toBeInTheDocument();
   });
 
@@ -30,7 +30,7 @@ describe("Header", () => {
     server.use(http.get("/api/auth/me", () => delay("infinite")));
     renderWithClient(<Header />);
 
-    expect(link("Buscar tiendas")).toBeInTheDocument();
+    expect(link("Buscar negocios")).toBeInTheDocument();
     expect(link("Iniciar sesión")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cerrar sesión" })).not.toBeInTheDocument();
   });
@@ -38,18 +38,18 @@ describe("Header", () => {
   it("shows the user's name and links to their shops", async () => {
     as({ id: 2, name: "Pepe", role: "empresario" });
     renderWithClient(<Header />);
-    expect(await screen.findByRole("link", { name: "Mis tiendas" })).toHaveAttribute("href", "/mis-tiendas");
+    expect(await screen.findByRole("link", { name: "Mis negocios" })).toHaveAttribute("href", "/mis-negocios");
     expect(screen.getByText("Pepe")).toBeInTheDocument();
     expect(link("Iniciar sesión")).not.toBeInTheDocument();
   });
 
   it("marks the current page in the navigation", async () => {
-    setLocation("/mis-tiendas");
+    setLocation("/mis-negocios");
     as({ id: 2, name: "Pepe", role: "empresario" });
     renderWithClient(<Header />);
 
-    expect(await screen.findByRole("link", { name: "Mis tiendas" })).toHaveAttribute("aria-current", "page");
-    expect(link("Buscar tiendas")).not.toHaveAttribute("aria-current");
+    expect(await screen.findByRole("link", { name: "Mis negocios" })).toHaveAttribute("aria-current", "page");
+    expect(link("Buscar negocios")).not.toHaveAttribute("aria-current");
   });
 
   it.each(["/login", "/registro"])("hides navigation and account buttons on %s", async (path) => {
@@ -58,7 +58,7 @@ describe("Header", () => {
     const { client } = renderWithClient(<Header />);
 
     await waitFor(() => expect(client.getQueryState(queryKeys.me)?.status).toBe("error"));
-    expect(link("Buscar tiendas")).not.toBeInTheDocument();
+    expect(link("Buscar negocios")).not.toBeInTheDocument();
     expect(link("Iniciar sesión")).not.toBeInTheDocument();
     expect(link("MarketHub")).toHaveAttribute("href", "/");
   });
@@ -105,7 +105,7 @@ describe("Header — mobile menu", () => {
     const toggle = screen.getByRole("button", { name: "Cerrar menú" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(toggle).toHaveAttribute("aria-controls", menu().id);
-    expect(within(menu()).getByRole("link", { name: "Buscar tiendas" })).toHaveAttribute("href", "/");
+    expect(within(menu()).getByRole("link", { name: "Buscar negocios" })).toHaveAttribute("href", "/");
     expect(within(menu()).getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/login");
     expect(within(menu()).getByRole("link", { name: "Crear cuenta" })).toHaveAttribute("href", "/registro");
 
@@ -119,7 +119,7 @@ describe("Header — mobile menu", () => {
     await screen.findByRole("button", { name: "Cerrar sesión" });
     await user.click(burger());
 
-    expect(within(menu()).getByRole("link", { name: "Mis tiendas" })).toHaveAttribute("href", "/mis-tiendas");
+    expect(within(menu()).getByRole("link", { name: "Mis negocios" })).toHaveAttribute("href", "/mis-negocios");
     expect(within(menu()).getByText("Pepe")).toBeInTheDocument();
     expect(within(menu()).getByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
   });
@@ -130,7 +130,7 @@ describe("Header — mobile menu", () => {
     await screen.findByRole("link", { name: "Iniciar sesión" });
     await user.click(burger());
 
-    await user.click(within(menu()).getByRole("link", { name: "Buscar tiendas" }));
+    await user.click(within(menu()).getByRole("link", { name: "Buscar negocios" }));
     expect(screen.queryByRole("navigation", { name: "Menú" })).not.toBeInTheDocument();
   });
 

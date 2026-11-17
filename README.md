@@ -2,8 +2,8 @@
 
 Encuentra los comercios de tu barrio por código postal o dibujando una zona en el mapa, y consulta sus productos y existencias.
 
-- **Clientes**: buscan tiendas sin necesidad de registrarse.
-- **Empresarios**: se registran para crear sus tiendas y gestionar productos y existencias.
+- **Clientes**: buscan negocios sin necesidad de registrarse.
+- **Empresarios**: se registran para crear sus negocios y gestionar productos y existencias.
 
 ## Requisitos
 
@@ -57,7 +57,7 @@ Este comando:
 2. inicia los tres servicios con recarga automática al guardar cambios:
    - **web** (Next.js): http://localhost:3000
    - **auth-service** (registro e inicio de sesión): puerto 4001
-   - **shop-service** (tiendas y productos): puerto 4002
+   - **shop-service** (negocios y productos): puerto 4002
 
 Abre **http://localhost:3000**. Next.js redirige `/api` y `/uploads` a los backends, así que no hace falta nginx en este modo. Las migraciones de la base de datos se aplican automáticamente al arrancar cada servicio.
 

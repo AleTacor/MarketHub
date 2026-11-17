@@ -111,7 +111,7 @@ export const shopInputSchema = z.object({
   name: z.string().trim().min(2, "El nombre es obligatorio").max(NAME_MAX_LENGTH, nameMax),
   description: descriptionField,
   postalCode: postalCodeSchema,
-  shopTypeId: z.coerce.number({ invalid_type_error: "Selecciona un tipo de tienda" }).int().positive("Selecciona un tipo de tienda"),
+  shopTypeId: z.coerce.number({ invalid_type_error: "Selecciona un tipo de negocio" }).int().positive("Selecciona un tipo de negocio"),
   // Rough bounding box of Spain, Canary Islands included.
   lat: z.coerce.number().min(27, "Ubicación fuera de España").max(44, "Ubicación fuera de España"),
   lng: z.coerce.number().min(-19, "Ubicación fuera de España").max(5, "Ubicación fuera de España"),
@@ -178,9 +178,9 @@ const offsetField = z.coerce
 
 /** Optional search filter: only shops of this type. */
 const shopTypeFilter = z.coerce
-  .number({ invalid_type_error: "Tipo de tienda no válido" })
-  .int("Tipo de tienda no válido")
-  .positive("Tipo de tienda no válido")
+  .number({ invalid_type_error: "Tipo de negocio no válido" })
+  .int("Tipo de negocio no válido")
+  .positive("Tipo de negocio no válido")
   .optional();
 
 export const shopQuerySchema = z

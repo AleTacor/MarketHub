@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE } from "@markethub/shared";
 
 /**
- * Browsing shops is public; only the business area needs an account.
+ * Browsing businesses is public; only the business area needs an account.
  * Sends users without a session cookie to /login. The backends do the real
  * token verification; this is only a UX redirect.
  */
@@ -17,5 +17,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/mis-tiendas/:path*"],
+  matcher: ["/mis-negocios/:path*"],
 };

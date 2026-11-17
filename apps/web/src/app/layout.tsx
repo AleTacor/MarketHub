@@ -10,7 +10,7 @@ const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans", di
 
 export const metadata: Metadata = {
   title: "MarketHub · Comercios de tu barrio",
-  description: "Encuentra las tiendas de tu zona y consulta sus productos.",
+  description: "Encuentra los negocios de tu zona y consulta sus productos.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

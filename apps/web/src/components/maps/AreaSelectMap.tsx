@@ -179,7 +179,7 @@ export default function AreaSelectMap({ shops, onAreaChange, clearKey, restoredA
       {shops.map((s) => (
         <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={7} pathOptions={MARKER_STYLE}>
           <Popup>
-            <a href={`/tiendas/${s.id}`} className="font-semibold">
+            <a href={`/negocios/${s.id}`} className="font-semibold">
               {s.name}
             </a>
             <br />

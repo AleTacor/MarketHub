@@ -21,17 +21,17 @@ function MyShops() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Mis tiendas</h1>
-        <Link href="/mis-tiendas/nueva" className="btn btn-primary">
-          + Nueva tienda
+        <h1 className="text-2xl font-semibold">Mis negocios</h1>
+        <Link href="/mis-negocios/nuevo" className="btn btn-primary">
+          + Nuevo negocio
         </Link>
       </div>
       {isLoading && <p className="text-fg-subtle">Cargando…</p>}
       {error && <p className="error-box">{errorMessage(error)}</p>}
       {data?.length === 0 && (
         <div className="card p-8 text-center text-fg-subtle">
-          Todavía no tienes tiendas.{" "}
-          <Link href="/mis-tiendas/nueva" className="font-medium text-accent hover:underline">
+          Todavía no tienes negocios.{" "}
+          <Link href="/mis-negocios/nuevo" className="font-medium text-accent hover:underline">
             Crea la primera
           </Link>
           .
@@ -39,7 +39,7 @@ function MyShops() {
       )}
       <div className="grid gap-4 md:grid-cols-2">
         {data?.map((shop) => (
-          <ShopCard key={shop.id} shop={shop} href={`/mis-tiendas/${shop.id}`} />
+          <ShopCard key={shop.id} shop={shop} href={`/mis-negocios/${shop.id}`} />
         ))}
       </div>
     </div>

@@ -16,6 +16,13 @@ export default function nextConfig(phase) {
     // Linting is `pnpm lint` (root eslint.config.mjs, also run by the pre-commit hook).
     // Next's own build-time lint only looks in apps/web and would miss that config.
     eslint: { ignoreDuringBuilds: true },
+    // The pages were renamed from "tiendas" to "negocios": old links and bookmarks keep working.
+    // Most specific first ("nueva" became "nuevo").
+    redirects: async () => [
+      { source: "/mis-tiendas/nueva", destination: "/mis-negocios/nuevo", permanent: true },
+      { source: "/mis-tiendas/:path*", destination: "/mis-negocios/:path*", permanent: true },
+      { source: "/tiendas/:path*", destination: "/negocios/:path*", permanent: true },
+    ],
   };
 
   if (phase === PHASE_DEVELOPMENT_SERVER) {

@@ -57,7 +57,7 @@ export function ShopForm({
       Object.fromEntries(REVIEW_PLATFORMS.map((p) => [p.id, data.get(`reviewLinks[${p.id}]`)])),
     );
     if (!links.success) return setError(links.error.issues[0]!.message);
-    if (!location) return setError("Marca en el mapa dónde está la tienda");
+    if (!location) return setError("Marca en el mapa dónde está el negocio");
     data.set("lat", String(location.lat));
     data.set("lng", String(location.lng));
     if (image) data.set("image", image);
@@ -101,7 +101,7 @@ export function ShopForm({
             />
           </div>
           <div>
-            <label className="label" htmlFor="shopTypeId">Tipo de tienda</label>
+            <label className="label" htmlFor="shopTypeId">Tipo de negocio</label>
             <select
               id="shopTypeId"
               name="shopTypeId"
@@ -143,10 +143,10 @@ export function ShopForm({
             ))}
           </div>
         </fieldset>
-        <ImageInput kind={SHOP_IMAGE} value={image} onChange={setImage} currentUrl={shop?.imageUrl} required={!shop} label="Imagen de la tienda" />
+        <ImageInput kind={SHOP_IMAGE} value={image} onChange={setImage} currentUrl={shop?.imageUrl} required={!shop} label="Imagen del negocio" />
         <fieldset className="space-y-2">
           <legend className="label">Opiniones de clientes (opcional)</legend>
-          <p className="text-xs text-fg-subtle">Pega el enlace a la página de tu tienda en los sitios de opiniones que uses.</p>
+          <p className="text-xs text-fg-subtle">Pega el enlace a la página de tu negocio en los sitios de opiniones que uses.</p>
           {REVIEW_PLATFORMS.map((p) => (
             <div key={p.id} className="grid items-center gap-1 sm:grid-cols-[10rem_1fr] sm:gap-3">
               <label className="text-sm text-fg-muted" htmlFor={`review-${p.id}`}>
@@ -190,7 +190,7 @@ export function ShopForm({
         />
         <span className="label mt-4">Ubicación</span>
         <p className="mb-2 text-xs text-fg-subtle">
-          Busca la dirección o haz clic en el mapa para marcar dónde está la tienda. Puedes ajustar el punto con otro clic.
+          Busca la dirección o haz clic en el mapa para marcar dónde está el negocio. Puedes ajustar el punto con otro clic.
         </p>
         <div className="h-80 overflow-hidden rounded-xl border border-line">
           <LocationPickerMap value={location} onChange={setLocation} focus={mapFocus} />

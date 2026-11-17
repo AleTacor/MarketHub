@@ -183,7 +183,7 @@ export default function SearchPage() {
     <div className="fit-viewport space-y-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       <section>
         <h1 className="text-2xl font-bold sm:text-3xl">
-          Encuentra tiendas{" "}
+          Encuentra negocios{" "}
           <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">cerca de ti</span>
         </h1>
         <p className="mt-1 text-fg-subtle">
@@ -214,7 +214,7 @@ export default function SearchPage() {
 
       {/* Mobile: the gap above is inside the fold (pt-6 instead of the parent's space-y), so it folds away too. */}
       <MobileFold id={`${panelId}-form`} collapsed={collapsed} animated={layoutAnimated} className="max-lg:!mt-0" innerClassName="max-lg:pt-6">
-        <form aria-label="Buscar tiendas" onSubmit={handleSubmit} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+        <form aria-label="Buscar negocios" onSubmit={handleSubmit} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
           <div className="sm:w-44">
             <label className="label" htmlFor="cp">Código postal</label>
             <input
@@ -228,11 +228,11 @@ export default function SearchPage() {
             />
           </div>
           <div className="flex-1">
-            <label className="label" htmlFor="q">Nombre de la tienda</label>
+            <label className="label" htmlFor="q">Nombre del negocio</label>
             <input id="q" className="input" placeholder="Buscar por nombre…" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="sm:w-52">
-            <label className="label" htmlFor="type">Tipo de tienda</label>
+            <label className="label" htmlFor="type">Tipo de negocio</label>
             <select id="type" className="input" value={shopTypeId ?? ""} onChange={(e) => handleTypeChange(e.target.value)}>
               <option value="">Todos los tipos</option>
               {shopTypes.map((t) => (
@@ -287,7 +287,7 @@ export default function SearchPage() {
               // p-1: room for the cards' hover border/shadow, which overflow would clip.
               <ul
                 ref={listRef}
-                aria-label="Tiendas encontradas"
+                aria-label="Negocios encontrados"
                 aria-busy={isFetchingNextPage}
                 className="-m-1 max-h-[70vh] min-h-0 flex-1 space-y-3 overflow-y-auto p-1 lg:max-h-none"
               >
@@ -305,14 +305,14 @@ export default function SearchPage() {
                       disabled={isFetching}
                       onClick={() => void fetchNextPage()}
                     >
-                      {isFetchingNextPage ? "Cargando…" : "Cargar más tiendas"}
+                      {isFetchingNextPage ? "Cargando…" : "Cargar más negocios"}
                     </button>
                   </li>
                 )}
               </ul>
             )}
             {search && !searching && !error && shops.length === 0 && (
-              <p className="card p-6 text-center text-fg-subtle">No hay tiendas que coincidan con tu búsqueda.</p>
+              <p className="card p-6 text-center text-fg-subtle">No hay negocios que coincidan con tu búsqueda.</p>
             )}
           </section>
         </div>

@@ -41,7 +41,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       });
       qc.setQueryData(queryKeys.me, user);
       const next = params.get("next");
-      router.replace(isSafeRedirect(next) ? next : "/mis-tiendas");
+      router.replace(isSafeRedirect(next) ? next : "/mis-negocios");
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -55,8 +55,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <h1 className="mb-1 text-xl font-semibold">{isRegister ? "Crear cuenta" : "Iniciar sesión"}</h1>
         <p className="mb-5 text-sm text-fg-subtle">
           {isRegister
-            ? "Para comercios: publica tu tienda y sus productos. Solo necesitas un nombre de usuario y una contraseña."
-            : "Accede para gestionar tus tiendas."}
+            ? "Para comercios: publica tu negocio y sus productos. Solo necesitas un nombre de usuario y una contraseña."
+            : "Accede para gestionar tus negocios."}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -87,7 +87,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </Link>
       </p>
       <p className="mt-2 text-center text-sm text-fg-subtle">
-        Para buscar tiendas no necesitas cuenta.{" "}
+        Para buscar negocios no necesitas cuenta.{" "}
         <Link href="/" className="font-medium text-accent hover:underline">
           Buscar sin registrarme
         </Link>

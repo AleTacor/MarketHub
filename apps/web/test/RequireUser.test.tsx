@@ -28,11 +28,11 @@ describe("RequireUser", () => {
 
 
   it("sends visitors to login, remembering where they were going", async () => {
-    setLocation("/mis-tiendas/3");
+    setLocation("/mis-negocios/3");
     server.use(http.get("/api/auth/me", () => HttpResponse.json({ error: "No has iniciado sesión" }, { status: 401 })));
     renderWithClient(<RequireUser>{() => <p>Contenido privado</p>}</RequireUser>);
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login?next=%2Fmis-tiendas%2F3"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login?next=%2Fmis-negocios%2F3"));
     expect(screen.queryByText("Contenido privado")).not.toBeInTheDocument();
   });
 

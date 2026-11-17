@@ -64,8 +64,8 @@ beforeEach(() => {
 const cpInput = () => screen.getByLabelText("Código postal");
 /** Waits until the result list shows `n` shops. */
 const expectResults = (n: number) =>
-  waitFor(() => expect(within(screen.getByRole("list", { name: "Tiendas encontradas" })).getAllByRole("link")).toHaveLength(n));
-const nameInput = () => screen.getByLabelText("Nombre de la tienda");
+  waitFor(() => expect(within(screen.getByRole("list", { name: "Negocios encontrados" })).getAllByRole("link")).toHaveLength(n));
+const nameInput = () => screen.getByLabelText("Nombre del negocio");
 const searchButton = () => screen.getByRole("button", { name: "Buscar" });
 const map = () => screen.getByTestId("map");
 /** Wrapper of the results section: hidden (animated) until something is searched. */
@@ -95,7 +95,7 @@ describe("search page", () => {
     expect(listCalls.calls[0]!.url.searchParams.has("q")).toBe(false);
 
     const card = screen.getByRole("link", { name: /Panadería Luna/ });
-    expect(card).toHaveAttribute("href", "/tiendas/1");
+    expect(card).toHaveAttribute("href", "/negocios/1");
     expect(within(card).getByText("Pan de masa madre")).toBeInTheDocument();
     expect(within(card).getByRole("img", { name: "Panadería Luna" })).toHaveAttribute("src", "/uploads/luna.png");
     expect(within(screen.getByRole("link", { name: /Frutería Sol/ })).getByText("Sin descripción")).toBeInTheDocument();
@@ -148,7 +148,7 @@ describe("search page", () => {
     const { user } = renderWithClient(<SearchPage />);
     await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
 
-    const list = await screen.findByRole("list", { name: "Tiendas encontradas" });
+    const list = await screen.findByRole("list", { name: "Negocios encontrados" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
     expect(list).toHaveClass("overflow-y-auto");
   });
@@ -222,7 +222,7 @@ describe("search page", () => {
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
 
-    expect(await screen.findByText("No hay tiendas que coincidan con tu búsqueda.")).toBeInTheDocument();
+    expect(await screen.findByText("No hay negocios que coincidan con tu búsqueda.")).toBeInTheDocument();
   });
 
   it("doesn't show how many shops were found", async () => {
@@ -242,7 +242,7 @@ describe("search page", () => {
   });
 
   describe("type filter", () => {
-    const typeSelect = () => screen.getByLabelText("Tipo de tienda");
+    const typeSelect = () => screen.getByLabelText("Tipo de negocio");
     const chooseType = async (user: ReturnType<typeof renderWithClient>["user"], name: string) =>
       user.selectOptions(typeSelect(), await screen.findByRole("option", { name }));
 
@@ -468,7 +468,7 @@ describe("search page", () => {
     afterEach(() => vi.unstubAllGlobals());
 
     const offsets = () => pageCalls.calls.map((c) => new URL(c.url).searchParams.get("offset"));
-    const cards = () => within(screen.getByRole("list", { name: "Tiendas encontradas" })).getAllByRole("link");
+    const cards = () => within(screen.getByRole("list", { name: "Negocios encontrados" })).getAllByRole("link");
 
     async function searchByName(user: ReturnType<typeof renderWithClient>["user"]) {
       await user.type(nameInput(), "tienda");
@@ -497,7 +497,7 @@ describe("search page", () => {
       await waitFor(() => expect(cards()).toHaveLength(23));
 
       expect(offsets()).toEqual([null, "10", "20"]);
-      expect(screen.queryByRole("button", { name: "Cargar más tiendas" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cargar más negocios" })).not.toBeInTheDocument();
       expect(map()).toHaveAttribute("data-shops", "23"); // the map shows everything loaded
       expect(map()).toHaveAttribute("data-fit", "false"); // and stops re-fitting after page 1
     });
@@ -506,7 +506,7 @@ describe("search page", () => {
       const { user } = renderWithClient(<SearchPage />); // no IntersectionObserver in jsdom
       await searchByName(user);
 
-      await user.click(screen.getByRole("button", { name: "Cargar más tiendas" }));
+      await user.click(screen.getByRole("button", { name: "Cargar más negocios" }));
       await waitFor(() => expect(cards()).toHaveLength(20));
       expect(offsets()).toEqual([null, "10"]);
     });
@@ -524,7 +524,7 @@ describe("search page", () => {
       await user.click(screen.getByRole("button", { name: "Dibujar zona" }));
       await expectResults(10);
 
-      await user.click(screen.getByRole("button", { name: "Cargar más tiendas" }));
+      await user.click(screen.getByRole("button", { name: "Cargar más negocios" }));
       await waitFor(() => expect(areaCalls.calls).toHaveLength(2));
       expect(areaCalls.calls[0]!.body).toEqual({ area: AREA });
       expect(areaCalls.calls[1]!.body).toEqual({ area: AREA, offset: 10 });
@@ -533,7 +533,7 @@ describe("search page", () => {
     it("starts again from the first page on a new search", async () => {
       const { user } = renderWithClient(<SearchPage />);
       await searchByName(user);
-      await user.click(screen.getByRole("button", { name: "Cargar más tiendas" }));
+      await user.click(screen.getByRole("button", { name: "Cargar más negocios" }));
       await waitFor(() => expect(cards()).toHaveLength(20));
 
       await user.type(nameInput(), " 1");
@@ -550,7 +550,7 @@ describe("search page", () => {
 // no CSS, so these check the toggle's state and the folds' `max-lg:invisible` class
 // (desktop always shows both).
 describe("search panel on mobile", () => {
-  const form = () => screen.getByRole("form", { name: "Buscar tiendas" });
+  const form = () => screen.getByRole("form", { name: "Buscar negocios" });
   const fold = (el: HTMLElement) => el.closest<HTMLElement>("[data-collapsed]")!;
   const formFold = () => fold(form());
   const mapFold = () => fold(map());
@@ -695,7 +695,7 @@ describe("search panel on mobile", () => {
   it("names the chosen type in the summary", async () => {
     const { user } = renderWithClient(<SearchPage />);
     await screen.findByRole("option", { name: "Frutería" });
-    await user.selectOptions(screen.getByLabelText("Tipo de tienda"), "Frutería");
+    await user.selectOptions(screen.getByLabelText("Tipo de negocio"), "Frutería");
     await user.type(cpInput(), "28001");
     await user.click(searchButton());
     expect(screen.getByText("Código postal 28001 · Frutería")).toBeInTheDocument();

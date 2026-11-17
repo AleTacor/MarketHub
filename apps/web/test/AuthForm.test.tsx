@@ -39,18 +39,18 @@ describe("AuthForm — login", () => {
 
     await fillAndSubmit(user, "Pepe", "secreto123", "Entrar");
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-negocios"));
     expect(calls.calls[0]!.url.pathname).toBe("/api/auth/login");
     expect(calls.calls[0]!.body).toEqual({ name: "Pepe", password: "secreto123" });
     expect(client.getQueryData(queryKeys.me)).toEqual(empresario);
   });
 
   it("returns to the page in ?next= after login", async () => {
-    setLocation("/login?next=/mis-tiendas/3");
+    setLocation("/login?next=/mis-negocios/3");
     respondWith(empresario);
     const { user } = renderWithClient(<AuthForm mode="login" />);
     await fillAndSubmit(user, "Pepe", "secreto123", "Entrar");
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas/3"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-negocios/3"));
   });
 
   it("ignores a ?next= pointing to another site", async () => {
@@ -58,7 +58,7 @@ describe("AuthForm — login", () => {
     respondWith(empresario);
     const { user } = renderWithClient(<AuthForm mode="login" />);
     await fillAndSubmit(user, "Pepe", "secreto123", "Entrar");
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-negocios"));
   });
 
   it("shows the backend error and lets the user retry", async () => {
@@ -104,7 +104,7 @@ describe("AuthForm — register", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     await fillAndSubmit(user, "Pepe", "secreto123", "Registrarme");
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-tiendas"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/mis-negocios"));
     expect(calls.calls[0]!.url.pathname).toBe("/api/auth/register");
     expect(calls.calls[0]!.body).toEqual({ name: "Pepe", password: "secreto123" });
   });
@@ -135,8 +135,8 @@ describe("AuthForm — register", () => {
 describe("isSafeRedirect", () => {
   it.each([
     ["/", true],
-    ["/mis-tiendas/3", true],
-    ["/tiendas/1?x=1", true],
+    ["/mis-negocios/3", true],
+    ["/negocios/1?x=1", true],
     ["//evil.com", false],
     ["/\\evil.com", false],
     ["https://evil.com", false],

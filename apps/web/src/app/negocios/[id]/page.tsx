@@ -17,8 +17,8 @@ export default function ShopPage() {
   const { data: shop, isLoading, error } = useShop(Number(id));
   const { data: me } = useMe(); // only to show "Gestionar" to the owner
 
-  if (isLoading) return <p className="text-fg-subtle">Cargando tienda…</p>;
-  if (error || !shop) return <p className="error-box">{error ? errorMessage(error) : "Tienda no encontrada"}</p>;
+  if (isLoading) return <p className="text-fg-subtle">Cargando negocio…</p>;
+  if (error || !shop) return <p className="error-box">{error ? errorMessage(error) : "Negocio no encontrado"}</p>;
   const reviewSites = REVIEW_PLATFORMS.filter((p) => shop.reviewLinks[p.id]);
 
   return (
@@ -71,8 +71,8 @@ export default function ShopPage() {
               </div>
             )}
             {me && shop.ownerId === me.id && (
-              <Link href={`/mis-tiendas/${shop.id}`} className="btn btn-sm mt-4">
-                Gestionar esta tienda
+              <Link href={`/mis-negocios/${shop.id}`} className="btn btn-sm mt-4">
+                Gestionar este negocio
               </Link>
             )}
           </div>
@@ -82,7 +82,7 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* No products: customers see no section at all (owners manage them in /mis-tiendas). */}
+      {/* No products: customers see no section at all (owners manage them in /mis-negocios). */}
       {shop.products.length > 0 && (
         <section>
           <h2 className="mb-3 text-lg font-semibold">Productos ({shop.products.length})</h2>

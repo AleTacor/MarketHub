@@ -27,8 +27,8 @@ function ManageShop({ id, userId }: { id: number; userId: number }) {
   const [showNewProduct, setShowNewProduct] = useState(false);
 
   if (isLoading) return <p className="text-fg-subtle">Cargando…</p>;
-  if (error || !shop) return <p className="error-box">{error ? errorMessage(error) : "Tienda no encontrada"}</p>;
-  if (shop.ownerId !== userId) return <p className="error-box">Esta tienda no es tuya.</p>;
+  if (error || !shop) return <p className="error-box">{error ? errorMessage(error) : "Negocio no encontrado"}</p>;
+  if (shop.ownerId !== userId) return <p className="error-box">Este negocio no es tuyo.</p>;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: queryKeys.shop(id) });
@@ -36,19 +36,19 @@ function ManageShop({ id, userId }: { id: number; userId: number }) {
   };
 
   async function deleteShop() {
-    if (!confirm(`¿Eliminar la tienda "${shop!.name}" y todos sus productos?`)) return;
+    if (!confirm(`¿Eliminar el negocio "${shop!.name}" y todos sus productos?`)) return;
     await api(`/api/shops/${id}`, { method: "DELETE" });
     qc.invalidateQueries({ queryKey: queryKeys.myShops });
-    router.replace("/mis-tiendas");
+    router.replace("/mis-negocios");
   }
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-3">
-        <Link href="/mis-tiendas" className="text-sm text-accent hover:underline">
-          ← Mis tiendas
+        <Link href="/mis-negocios" className="text-sm text-accent hover:underline">
+          ← Mis negocios
         </Link>
-        <Link href={`/tiendas/${id}`} className="ml-auto text-sm text-fg-subtle hover:underline">
+        <Link href={`/negocios/${id}`} className="ml-auto text-sm text-fg-subtle hover:underline">
           Ver como cliente
         </Link>
       </div>
@@ -78,7 +78,7 @@ function ManageShop({ id, userId }: { id: number; userId: number }) {
             </div>
             <div className="flex gap-2 sm:flex-col">
               <button className="btn btn-sm" onClick={() => setEditingShop(true)}>
-                Editar tienda
+                Editar negocio
               </button>
               <button className="btn btn-sm btn-danger" onClick={deleteShop}>
                 Eliminar

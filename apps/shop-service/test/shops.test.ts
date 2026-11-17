@@ -77,7 +77,7 @@ describe("GET /api/shops", () => {
 
   it.each(["abc", "0", "1.5"])("rejects the shop type %s", async (shopTypeId) => {
     const res = await request(ctx.app).get("/api/shops").query({ q: "luna", shopTypeId }).expect(400);
-    expect(res.body.error).toBe("Tipo de tienda no válido");
+    expect(res.body.error).toBe("Tipo de negocio no válido");
     expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 
@@ -130,7 +130,7 @@ describe("POST /api/shops/search-area", () => {
   });
 
   it("explains a bad shop type as such", async () => {
-    await request(ctx.app).post("/api/shops/search-area").send({ area, shopTypeId: "x" }).expect(400, { error: "Tipo de tienda no válido" });
+    await request(ctx.app).post("/api/shops/search-area").send({ area, shopTypeId: "x" }).expect(400, { error: "Tipo de negocio no válido" });
     expect(ctx.repo.searchShopsPage).not.toHaveBeenCalled();
   });
 
@@ -158,7 +158,7 @@ describe("GET /api/shops/:id", () => {
   });
 
   it("returns 404 when it doesn't exist", async () => {
-    await request(ctx.app).get("/api/shops/99").expect(404, { error: "Tienda no encontrada" });
+    await request(ctx.app).get("/api/shops/99").expect(404, { error: "Negocio no encontrado" });
   });
 
   it.each(["abc", "0", "-1", "1.5"])("rejects the id %s", async (id) => {
@@ -187,7 +187,7 @@ describe("POST /api/shops", () => {
 
   it("requires an image", async () => {
     const res = await create().expect(400);
-    expect(res.body.error).toBe("La imagen de la tienda es obligatoria");
+    expect(res.body.error).toBe("La imagen del negocio es obligatoria");
   });
 
   it("only accepts JPG, PNG or WEBP", async () => {
@@ -205,7 +205,7 @@ describe("POST /api/shops", () => {
     ctx.repo.shopTypeExists.mockResolvedValue(false);
     const before = await readdir(UPLOAD_DIR);
     const res = await create().attach("image", PNG, { filename: "a.png", contentType: "image/png" }).expect(400);
-    expect(res.body.error).toBe("El tipo de tienda no existe");
+    expect(res.body.error).toBe("El tipo de negocio no existe");
     expect(await readdir(UPLOAD_DIR)).toEqual(before);
   });
 
@@ -321,7 +321,7 @@ describe("PUT /api/shops/:id", () => {
   it("returns 403 for another empresario's shop", async () => {
     ctx.repo.getShopOwner.mockResolvedValue({ ownerId: 999, imageUrl: "/uploads/x.png" });
     const res = await update().expect(403);
-    expect(res.body.error).toBe("Esta tienda no es tuya");
+    expect(res.body.error).toBe("Este negocio no es tuyo");
     expect(ctx.repo.updateShop).not.toHaveBeenCalled();
   });
 
